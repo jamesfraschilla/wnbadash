@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchGamesByDate, inferLeagueFromTeamId, teamLogoUrl } from "../api.js";
+import { fetchGamesByDate, filterGamesByLeague, teamLogoUrl } from "../api.js";
 import { formatDateInput, formatDateLabel, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
 import styles from "./Home.module.css";
 
@@ -18,22 +18,7 @@ export default function Home() {
     queryFn: () => fetchGamesByDate(dateInput),
   });
 
-  const { nbaGames, wnbaGames, gLeagueGames } = useMemo(() => {
-    const nba = [];
-    const wnba = [];
-    const gLeague = [];
-    games.forEach((game) => {
-      const league = inferLeagueFromTeamId(game?.homeTeam?.teamId || game?.awayTeam?.teamId);
-      if (league === "gleague") {
-        gLeague.push(game);
-      } else if (league === "wnba") {
-        wnba.push(game);
-      } else {
-        nba.push(game);
-      }
-    });
-    return { nbaGames: nba, wnbaGames: wnba, gLeagueGames: gLeague };
-  }, [games]);
+  const wnbaGames = useMemo(() => filterGamesByLeague(games, "wnba"), [games]);
 
   if (isLoading) {
     return <div className={styles.stateMessage}>Loading games...</div>;
@@ -43,7 +28,7 @@ export default function Home() {
     return <div className={styles.stateMessage}>Failed to load games.</div>;
   }
 
-  if (!nbaGames.length && !wnbaGames.length && !gLeagueGames.length) {
+  if (!wnbaGames.length) {
     return <div className={styles.stateMessage}>No games scheduled for this date.</div>;
   }
 
@@ -119,24 +104,7 @@ export default function Home() {
           Next
         </button>
       </div>
-      {wnbaGames.length > 0 && (
-        <>
-          <h2 className={styles.sectionTitle}>WNBA</h2>
-          <div className={styles.gameList}>{renderGames(wnbaGames)}</div>
-        </>
-      )}
-      {nbaGames.length > 0 && (
-        <>
-          <h2 className={styles.sectionTitle}>NBA</h2>
-          <div className={styles.gameList}>{renderGames(nbaGames)}</div>
-        </>
-      )}
-      {gLeagueGames.length > 0 && (
-        <>
-          <h2 className={styles.sectionTitle}>G League</h2>
-          <div className={styles.gameList}>{renderGames(gLeagueGames)}</div>
-        </>
-      )}
+      <div className={styles.gameList}>{renderGames(wnbaGames)}</div>
     </div>
   );
 }

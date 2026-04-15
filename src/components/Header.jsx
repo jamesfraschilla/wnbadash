@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchGamesByDate } from "../api.js";
+import { fetchGamesByDate, filterGamesByLeague } from "../api.js";
 import { formatDateInput, formatDateLabel, parseDateInput } from "../utils.js";
 import GameCard from "./GameCard.jsx";
 import styles from "./Header.module.css";
@@ -26,9 +26,9 @@ export default function Header({ theme, onToggleTheme, onSignOut, profile, isAdm
   });
 
   const orderedGames = useMemo(() => {
-    return [...games].sort((a, b) => {
-      const aPriority = a.homeTeam.teamTricode === "POR" || a.awayTeam.teamTricode === "POR";
-      const bPriority = b.homeTeam.teamTricode === "POR" || b.awayTeam.teamTricode === "POR";
+    return [...filterGamesByLeague(games, "wnba")].sort((a, b) => {
+      const aPriority = a.homeTeam.teamTricode === "WAS" || a.awayTeam.teamTricode === "WAS";
+      const bPriority = b.homeTeam.teamTricode === "WAS" || b.awayTeam.teamTricode === "WAS";
       if (aPriority && !bPriority) return -1;
       if (!aPriority && bPriority) return 1;
       return 0;

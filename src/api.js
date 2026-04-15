@@ -50,6 +50,12 @@ export function inferLeagueFromTeamId(teamId) {
   return "nba";
 }
 
+export function filterGamesByLeague(games, league) {
+  return (Array.isArray(games) ? games : []).filter((game) => (
+    inferLeagueFromTeamId(game?.homeTeam?.teamId || game?.awayTeam?.teamId) === league
+  ));
+}
+
 export function playerHeadshotUrls(personId, teamId = null) {
   const safePersonId = String(personId || "").trim();
   if (!safePersonId) return [];
