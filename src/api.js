@@ -1,6 +1,7 @@
 import { gLeagueHeadshotOverrides } from "./gLeagueHeadshotOverrides.js";
 
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
+const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
 const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   ? `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1`
   : "";
@@ -13,9 +14,101 @@ async function requestJson(url) {
   return res.json();
 }
 
-export function fetchGamesByDate(dateStr) {
-  const url = `${API_BASE}/games/byDate?date=${dateStr}`;
-  return requestJson(url);
+function normalizeDateOnly(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+
+  const direct = new Date(text);
+  if (!Number.isNaN(direct.getTime())) {
+    return direct.toISOString().slice(0, 10);
+  }
+
+  const dateMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dateMatch) {
+    const [, month, day, year] = dateMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  return text.slice(0, 10);
+}
+
+function normalizeStatus(game) {
+  const explicit = Number(game?.gameStatus ?? game?.gameStatusId ?? game?.gameStatusCode);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+  const statusText = String(game?.gameStatusText || "").toLowerCase();
+  if (!statusText) return 1;
+  if (statusText.includes("final")) return 3;
+  if (statusText.includes("q") || statusText.includes("ot") || statusText.includes("halftime")) return 2;
+  return 1;
+}
+
+function normalizeTeam(team) {
+  return {
+    teamId: String(team?.teamId || team?.id || "").trim(),
+    teamName: String(team?.teamName || team?.name || "").trim(),
+    teamCity: String(team?.teamCity || team?.city || "").trim(),
+    teamTricode: String(team?.teamTricode || team?.tricode || team?.teamCode || "").trim().toUpperCase(),
+    wins: Number(team?.wins ?? team?.win ?? 0) || 0,
+    losses: Number(team?.losses ?? team?.loss ?? 0) || 0,
+    score: Number(team?.score ?? team?.points ?? 0) || 0,
+    timeoutsRemaining: Number(team?.timeoutsRemaining ?? 0) || 0,
+  };
+}
+
+function normalizeWnbaScheduleGame(game, seasonYear = "") {
+  const statusText = String(game?.gameStatusText || game?.gameLabel || "").trim();
+  const gameTimeUTC = String(
+    game?.gameTimeUTC ||
+    game?.gameDateTimeUTC ||
+    game?.gameDateTime ||
+    ""
+  ).trim();
+  const gameEt = String(
+    game?.gameEt ||
+    game?.gameDateEst ||
+    game?.gameDateTimeEst ||
+    ""
+  ).trim();
+
+  return {
+    gameId: String(game?.gameId || "").trim(),
+    gameCode: String(game?.gameCode || game?.branchLink || "").trim(),
+    gameStatus: normalizeStatus(game),
+    gameStatusText: statusText || (gameTimeUTC || gameEt ? "Scheduled" : ""),
+    period: Number(game?.period ?? game?.gameStatusPeriod ?? 0) || 0,
+    gameClock: String(game?.gameClock || "").trim(),
+    gameTimeUTC,
+    gameEt,
+    seasonYear: String(game?.seasonYear || seasonYear || "").trim(),
+    seasonType: String(game?.seasonType || "").trim(),
+    arena: {
+      arenaName: String(game?.arena?.arenaName || game?.arenaName || "").trim(),
+      arenaState: String(game?.arena?.arenaState || game?.arenaState || "").trim(),
+      arenaCity: String(game?.arena?.arenaCity || game?.arenaCity || "").trim(),
+    },
+    homeTeam: normalizeTeam(game?.homeTeam),
+    awayTeam: normalizeTeam(game?.awayTeam),
+  };
+}
+
+export async function fetchGamesByDate(dateStr) {
+  const normalizedTargetDate = normalizeDateOnly(dateStr);
+  const payload = await requestJson(WNBA_SCHEDULE_URL);
+  const seasonYear = String(payload?.leagueSchedule?.seasonYear || "").trim();
+  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
+    ? payload.leagueSchedule.gameDates
+    : [];
+
+  const matchingDate = gameDates.find((entry) => (
+    normalizeDateOnly(entry?.gameDate || entry?.gameDateEst || entry?.gameDateTimeUTC) === normalizedTargetDate
+  ));
+
+  const games = Array.isArray(matchingDate?.games) ? matchingDate.games : [];
+
+  return games
+    .map((game) => normalizeWnbaScheduleGame(game, seasonYear))
+    .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
 }
 
 export function fetchGame(gameId, segment = null) {
