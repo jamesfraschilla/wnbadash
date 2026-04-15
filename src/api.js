@@ -16,6 +16,13 @@ async function requestJson(url) {
   return res.json();
 }
 
+async function requestWnbaSchedule() {
+  if (SUPABASE_FUNCTIONS_BASE) {
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule`);
+  }
+  return requestJson(WNBA_SCHEDULE_URL);
+}
+
 function padGameId(gameId) {
   return String(gameId || "").trim().padStart(10, "0");
 }
@@ -591,7 +598,7 @@ function normalizeWnbaScheduleGame(game, seasonYear = "") {
 
 export async function fetchGamesByDate(dateStr) {
   const normalizedTargetDate = normalizeDateOnly(dateStr);
-  const payload = await requestJson(WNBA_SCHEDULE_URL);
+  const payload = await requestWnbaSchedule();
   const seasonYear = String(payload?.leagueSchedule?.seasonYear || "").trim();
   const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
     ? payload.leagueSchedule.gameDates
@@ -609,7 +616,7 @@ export async function fetchGamesByDate(dateStr) {
 }
 
 export async function fetchWnbaTeams() {
-  const payload = await requestJson(WNBA_SCHEDULE_URL);
+  const payload = await requestWnbaSchedule();
   const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
     ? payload.leagueSchedule.gameDates
     : [];

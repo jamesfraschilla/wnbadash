@@ -10,5 +10,8 @@ verify_jwt = false
 [functions.wnba-rosters]
 verify_jwt = false
 
+[functions.wnba-schedule]
+verify_jwt = false
+
 [functions.export-image]
 verify_jwt = false
