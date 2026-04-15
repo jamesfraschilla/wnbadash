@@ -5,7 +5,6 @@ const corsHeaders = {
 };
 
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
-
 const TEAM_ROSTER_URLS: Record<string, string> = {
   "Atlanta Dream": "https://dream.wnba.com/roster",
   "Chicago Sky": "https://sky.wnba.com/roster",
@@ -75,7 +74,54 @@ function splitName(fullName: string) {
   };
 }
 
+function decodeJsonText(value: string) {
+  return normalizeWhitespace(
+    String(value || "")
+      .replace(/\\"/g, "\"")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\u0027/gi, "'")
+      .replace(/\\u2019/gi, "'")
+      .replace(/\\u2013/gi, "-")
+      .replace(/\\u2014/gi, "-")
+      .replace(/\\\\/g, "\\")
+  );
+}
+
 function extractRosterEntries(html: string) {
+  const objectMatches = [...html.matchAll(
+    /playerId\\?":\d+[^]*?playerLink\\?":"(?:\\.|[^"])*/g
+  )];
+
+  const seen = new Set<string>();
+  const structuredPlayers = objectMatches
+    .map((match) => {
+      const rawPlayer = match[0] || "";
+      const personId = String(rawPlayer.match(/playerId\\?":("?(\d+)"?)/)?.[2] || "").trim();
+      const fullName = decodeJsonText(rawPlayer.match(/playerName\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
+      const jerseyNum = decodeJsonText(rawPlayer.match(/playerNumber\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
+      const position = decodeJsonText(rawPlayer.match(/position\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
+      const teamId = String(rawPlayer.match(/teamId\\?":"?(\d+)"?/)?.[1] || "").trim();
+      const playerLink = decodeJsonText(rawPlayer.match(/playerLink\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
+      if (!personId || !fullName || seen.has(personId)) return null;
+      seen.add(personId);
+      const { firstName, familyName } = splitName(fullName);
+      return {
+        personId,
+        firstName,
+        familyName,
+        fullName,
+        jerseyNum,
+        position,
+        teamId,
+        playerLink,
+      };
+    })
+    .filter(Boolean);
+
+  if (structuredPlayers.length) {
+    return structuredPlayers;
+  }
+
   const text = stripHtml(html);
   const rosterHeadingIndex = text.indexOf("Team Roster");
   if (rosterHeadingIndex < 0) return [];
@@ -91,11 +137,14 @@ function extractRosterEntries(html: string) {
     const position = normalizeWhitespace(match[3] || "");
     const { firstName, familyName } = splitName(fullName);
     return {
+      personId: "",
       firstName,
       familyName,
       fullName,
       jerseyNum,
       position,
+      teamId: "",
+      playerLink: "",
     };
   });
 }
@@ -194,14 +243,14 @@ Deno.serve(async (req) => {
       const html = await response.text();
       const players = extractRosterEntries(html)
         .map((player) => ({
-          personId: "",
+          personId: player.personId,
           firstName: player.firstName,
           familyName: player.familyName,
           fullName: player.fullName,
           jerseyNum: player.jerseyNum,
           position: player.position,
           height: "",
-          teamId: team.teamId,
+          teamId: player.teamId || team.teamId,
         }))
         .filter((player) => player.fullName);
 

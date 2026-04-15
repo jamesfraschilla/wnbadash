@@ -732,11 +732,49 @@ export async function fetchCurrentGLeagueRosters() {
   return requestJson(`${SUPABASE_FUNCTIONS_BASE}/gleague-rosters`);
 }
 
+function slugifyRosterName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function withStableWnbaRosterIds(payload) {
+  const teams = Object.fromEntries(
+    Object.entries(payload?.teams || {}).map(([teamId, team]) => {
+      const players = Array.isArray(team?.players)
+        ? team.players.map((player, index) => {
+            const fullName = String(player?.fullName || `${player?.firstName || ""} ${player?.familyName || ""}`).trim();
+            const jerseyNum = String(player?.jerseyNum || "").trim();
+            const stableId = player?.personId
+              || `wnba-${teamId}-${slugifyRosterName(fullName) || "player"}-${jerseyNum || index + 1}`;
+            return {
+              ...player,
+              personId: String(stableId),
+            };
+          })
+        : [];
+
+      return [teamId, {
+        ...team,
+        teamId: String(team?.teamId || teamId),
+        players,
+      }];
+    })
+  );
+
+  return {
+    ...payload,
+    teams,
+  };
+}
+
 export async function fetchCurrentWnbaRosters() {
   if (!SUPABASE_FUNCTIONS_BASE) {
     throw new Error("Supabase functions are not configured.");
   }
-  return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-rosters`);
+  const payload = await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-rosters`);
+  return withStableWnbaRosterIds(payload);
 }
 
 export function nbaEventVideoUrl({ gameId, actionNumber, seasonYear, title }) {
