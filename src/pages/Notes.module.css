@@ -1,0 +1,339 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top)) 24px 40px;
+}
+
+.backRow {
+  margin-bottom: 12px;
+}
+
+.backButton {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background-color: var(--bg);
+  font-size: 13px;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: 20px;
+  color: var(--text);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.filterField select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel-strong);
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.noteRow {
+  display: grid;
+  grid-template-columns: 24px auto 1fr auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.noteDelete {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.noteDelete:hover {
+  color: var(--negative);
+}
+
+.noteDeleteSpacer {
+  width: 24px;
+  height: 24px;
+}
+
+.noteEdit {
+  border: none;
+  background: var(--panel-strong);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  min-width: 48px;
+  justify-self: end;
+  margin-right: 2px;
+}
+
+.noteEdit:hover {
+  border: 1px solid var(--border);
+}
+
+.noteSecondary {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.noteMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 48px;
+}
+
+.notePeriod {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.noteClock {
+  font-variant-numeric: tabular-nums;
+}
+
+.sharedBadge,
+.privateBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.sharedBadge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.privateBadge {
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.noteBody {
+  font-size: 14px;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--panel-strong);
+  color: var(--muted);
+}
+
+.noteButtons {
+  display: grid;
+  gap: 8px;
+}
+
+.noteClipLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.noteClipLink:hover {
+  border-color: var(--highlight-text);
+}
+
+.playIcon {
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 9px solid #facc15;
+  margin-left: 2px;
+}
+
+.noteOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 16, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.noteModal {
+  width: min(520px, 100%);
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+}
+
+.noteModal h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.noteModal textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--panel-strong);
+}
+
+.noteActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.noteActions button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.noteActions button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.noteCancel {
+  background: var(--border);
+  color: var(--text);
+}
+
+.noteSave {
+  background: var(--highlight-text);
+  color: var(--bg);
+}
+
+.modalError {
+  margin-top: 10px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.modalStatus {
+  margin-top: 10px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-size: 13px;
+}
+
+.noteTags {
+  margin: 10px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 6px 10px;
+}
+
+.noteTags summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.noteTagsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+.noteTagOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .noteRow {
+    grid-template-columns: 24px 1fr;
+  }
+
+  .noteButtons {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+  }
+}

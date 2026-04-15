@@ -1,0 +1,35 @@
+.container {
+  margin: 16px auto;
+  max-width: 520px;
+}
+
+.title {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.teamLogo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.key {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+}

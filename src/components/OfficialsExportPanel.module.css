@@ -1,0 +1,209 @@
+.container {
+  --official-column-width: 120px;
+  margin: 20px auto 0;
+  padding: 0;
+  width: min(100%, calc((var(--official-column-width) * 3) + 36px));
+}
+
+.contentColumn {
+  width: 100%;
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.officialsShell {
+  display: grid;
+  grid-template-columns: repeat(3, var(--official-column-width)) 28px;
+  justify-content: center;
+  align-items: start;
+  column-gap: 8px;
+}
+
+.officialsRow {
+  display: grid;
+  grid-column: 1 / 4;
+  grid-template-columns: repeat(3, var(--official-column-width));
+  justify-content: center;
+  align-items: start;
+}
+
+.officialTile {
+  width: var(--official-column-width);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.avatarFrame {
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #e8e8e8;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  transform-origin: center top;
+}
+
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.nameText {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--text);
+}
+
+.roleText {
+  margin-top: 2px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.footer {
+  margin-top: 12px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.emptyState {
+  margin-top: 16px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.downloadWrap {
+  position: relative;
+  grid-column: 4;
+  justify-self: start;
+  padding-top: 26px;
+}
+
+.downloadButton {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--text);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.downloadIcon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.exportMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 112px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 10;
+}
+
+.exportButton {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 6px;
+  border: 1px solid var(--text);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exportButton:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+.exportSandbox {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    width: 100%;
+  }
+
+  .contentColumn {
+    width: 100%;
+  }
+
+  .officialsShell {
+    grid-template-columns: repeat(3, var(--official-column-width)) 28px;
+    min-width: calc((var(--official-column-width) * 3) + 28px);
+  }
+
+  .officialsRow {
+    min-width: calc(var(--official-column-width) * 3);
+  }
+
+  .exportMenu {
+    width: 100px;
+  }
+}

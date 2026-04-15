@@ -1,0 +1,181 @@
+.page {
+  display: grid;
+  gap: 18px;
+}
+
+.hero {
+  display: grid;
+  gap: 10px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(251, 113, 133, 0.14), transparent 30%),
+    linear-gradient(145deg, var(--panel), var(--bg));
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 62ch;
+  line-height: 1.5;
+}
+
+.workspace {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: linear-gradient(180deg, var(--panel), color-mix(in srgb, var(--panel) 82%, var(--bg)));
+}
+
+.toolGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.toolColumn {
+  display: grid;
+  gap: 16px;
+}
+
+.playerFields {
+  display: grid;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.leagueField {
+  max-width: 220px;
+}
+
+.fieldLabel {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.select {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 0 14px;
+  font-size: 1rem;
+}
+
+.footerRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) auto 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.logoField {
+  max-width: 240px;
+}
+
+.logoPreview {
+  width: 68px;
+  height: 68px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoPreview img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.actionCluster {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  min-width: 108px;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton {
+  border: 1px solid var(--highlight-text);
+  background: var(--highlight-text);
+  color: var(--bg);
+}
+
+.secondaryButton {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.statusNote {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .toolGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .footerRow {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .logoField {
+    max-width: none;
+  }
+
+  .actionCluster {
+    justify-content: stretch;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    flex: 1 1 0;
+  }
+}

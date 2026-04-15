@@ -1,0 +1,126 @@
+.container {
+  margin: 10px 0;
+  width: 100%;
+  max-width: var(--stats-card-width);
+  height: var(--stats-card-height);
+  padding: 10px 16px;
+  border-radius: 0;
+  border: 1px solid #ffffff;
+  background-color: var(--panel-strong);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+html:not([data-theme="dark"]) .container {
+  border-color: #d1d5db;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 1px 0 6px;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  color: var(--text);
+}
+
+.table {
+  display: grid;
+  grid-template-columns: var(--stats-label-width) repeat(2, var(--stats-value-width));
+  column-gap: var(--stats-col-gap);
+  row-gap: 6px;
+  align-items: center;
+  width: fit-content;
+}
+
+.corner {
+  height: 20px;
+}
+
+.teamHeader {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teamLogo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.row {
+  display: contents;
+}
+
+.statLabel {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--text);
+  text-align: left;
+}
+
+.statValue {
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .container {
+    margin: 24px 0 0;
+    padding: 8px 16px;
+  }
+
+  .title {
+    font-size: 20px;
+    margin: 1px 0 4px;
+  }
+
+  .table {
+    grid-template-columns: minmax(90px, 1fr) repeat(2, minmax(0, 1fr));
+    column-gap: 4px;
+    row-gap: 4px;
+    width: 100%;
+  }
+
+  .corner {
+    height: 14px;
+  }
+
+  .teamHeader {
+    font-size: 11px;
+    height: 14px;
+    line-height: 14px;
+  }
+
+  .teamLogo {
+    width: 12px;
+    height: 12px;
+  }
+
+  .statLabel {
+    font-size: 11px;
+    white-space: nowrap;
+    line-height: 14px;
+  }
+
+  .statValue {
+    height: 14px;
+    font-size: 11px;
+  }
+}

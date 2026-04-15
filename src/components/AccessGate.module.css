@@ -1,0 +1,78 @@
+@font-face {
+  font-family: "DINalt";
+  src: url("../assets/fonts/DINalt.ttf") format("truetype");
+  font-display: swap;
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(210, 10, 44, 0.12), transparent 32%),
+    linear-gradient(180deg, var(--bg), var(--bg));
+  color: var(--text);
+  font-family: "DINalt", sans-serif;
+}
+
+.card {
+  width: min(420px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16);
+  padding: 24px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.form {
+  display: grid;
+  gap: 10px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  padding: 12px 14px;
+  font-family: "DINalt", sans-serif;
+  font-size: 16px;
+}
+
+.button {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #ffffff;
+  padding: 11px 14px;
+  font-family: "DINalt", sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.error {
+  color: #c62828;
+  font-size: 13px;
+}

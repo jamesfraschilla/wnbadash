@@ -1,0 +1,256 @@
+.container {
+  max-width: 100%;
+  padding: 20px;
+  background-color: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.backRow {
+  width: 100%;
+  max-width: 1480px;
+  margin-bottom: 10px;
+}
+
+.viewToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.viewButton {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.viewButtonActive {
+  border-color: var(--highlight-text);
+  color: var(--highlight-text);
+}
+
+.backButton {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background-color: var(--bg);
+  font-size: 13px;
+}
+
+.backButton:hover {
+  border-color: var(--muted);
+}
+
+.header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  padding: 20px;
+  background-color: var(--bg);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 1480px;
+}
+
+.teamSection {
+  display: flex;
+  align-items: center;
+}
+
+.teamSummary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.teamLogo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+.teamTricode {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.teamTricodeLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.teamScore {
+  font-size: 32px;
+  font-weight: 300;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.vs {
+  font-size: 20px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.periods {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 1480px;
+}
+
+.period {
+  background: var(--bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.periodTitle {
+  background: var(--panel-strong);
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stintRow {
+  display: flex;
+  overflow-x: auto;
+}
+
+.teamLabels {
+  display: flex;
+  flex-direction: column;
+  min-width: 90px;
+  border-right: 1px solid var(--border);
+  background: var(--panel-strong);
+}
+
+.labelSpacer {
+  height: 40px;
+}
+
+.teamLabel {
+  flex: 1;
+  padding: 6px 8px;
+  text-align: center;
+  font-weight: 600;
+  border-top: 1px dashed var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.teamLabelLogo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.stintsContainer {
+  display: flex;
+}
+
+.stintCell {
+  width: 160px;
+  min-width: 160px;
+  border-right: 1px solid var(--border);
+}
+
+.lastCell {
+  border-right: none;
+}
+
+.stintHeader {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--muted);
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.timeValue {
+  font-size: 14px;
+}
+
+.netValue {
+  font-size: 12px;
+}
+
+.playersSection {
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.subbedIn {
+  color: var(--highlight-text);
+  background-color: var(--highlight-bg);
+  border-radius: 4px;
+  padding: 1px 3px;
+}
+
+.valuePositive {
+  color: var(--positive);
+}
+
+.valueNegative {
+  color: var(--negative);
+}
+
+.valueZero {
+  color: var(--text);
+}
+
+.stateMessage {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .header {
+    gap: 20px;
+    padding: 16px;
+  }
+
+  .teamLogo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .teamTricode {
+    font-size: 20px;
+  }
+
+  .teamTricodeLogo {
+    width: 22px;
+    height: 22px;
+  }
+
+  .teamScore {
+    font-size: 28px;
+  }
+}

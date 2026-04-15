@@ -1,0 +1,75 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 120;
+}
+
+.dialog {
+  width: min(480px, 100%);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 24px 90px rgba(15, 23, 42, 0.34);
+  padding: 22px;
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.title {
+  margin: 8px 0 10px;
+  font-size: 1.2rem;
+}
+
+.body {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.message {
+  margin-top: 14px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.secondaryButton,
+.primaryButton {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.secondaryButton {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.primaryButton {
+  border: 0;
+  background: var(--highlight-text);
+  color: var(--bg);
+}

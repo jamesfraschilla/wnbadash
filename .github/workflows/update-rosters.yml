@@ -1,0 +1,53 @@
+name: Update Rosters
+
+on:
+  schedule:
+    # 6:00 AM EST == 11:00 UTC
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  update-rosters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install nba_api
+      - name: Skip outside season
+        run: |
+          month=$(date -u +%m)
+          case "$month" in
+            10|11|12|01|02|03|04|05|06) echo "In season window." ;;
+            *) echo "Outside season window. Skipping."; exit 0 ;;
+          esac
+      - name: Build rosters
+        run: |
+          tries=0
+          until [ $tries -ge 3 ]; do
+            python3 scripts/build_rosters.py && break
+            tries=$((tries+1))
+            echo "Roster build failed. Retry $tries/3..."
+            sleep 20
+          done
+          if [ $tries -ge 3 ]; then
+            echo "Roster build failed after retries."
+            exit 1
+          fi
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/rosters.json
+          git commit -m "Update rosters"
+          git push

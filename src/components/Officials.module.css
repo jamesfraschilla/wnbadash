@@ -1,0 +1,146 @@
+.container {
+  --calls-team-width: 92px;
+  --calls-total-width: 54px;
+  --official-column-width: 120px;
+  --calls-align-nudge: -10px;
+  margin-top: 8px;
+  margin-bottom: 2.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: center;
+  width: min(100%, calc(var(--calls-team-width) + var(--calls-total-width) + (var(--official-column-width) * 3)));
+  position: relative;
+  left: calc(((var(--calls-total-width) - var(--calls-team-width)) / 2) + var(--calls-align-nudge));
+}
+
+.callsTable {
+  width: calc(var(--calls-team-width) + var(--calls-total-width) + (var(--official-column-width) * 3));
+  border-spacing: 0;
+  text-align: center;
+  color: var(--text);
+  table-layout: fixed;
+}
+
+.teamCol {
+  width: var(--calls-team-width);
+}
+
+.totalCol {
+  width: var(--calls-total-width);
+}
+
+.officialCol {
+  width: var(--official-column-width);
+}
+
+.headerRow {
+  font-size: 0.75rem;
+}
+
+.headerCell,
+.headerCellLeft {
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0.3rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.callsAgainstLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-align: left;
+}
+
+.teamCell {
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 0.32rem;
+  text-align: center;
+  color: var(--text);
+}
+
+.teamLogo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.dataCell {
+  padding: 0.32rem;
+  text-align: center;
+  color: var(--text);
+  font-size: 0.94rem;
+}
+
+.officialsLabel {
+  font-weight: 700;
+  text-align: center;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.columnSpacer {
+  display: block;
+  min-height: 1px;
+}
+
+.officialsStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.officialItem {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  margin-bottom: 0.5rem;
+}
+
+.name,
+.officialName {
+  white-space: nowrap;
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .container {
+    margin-top: 0;
+    overflow-x: auto;
+    width: 100%;
+    left: 0;
+  }
+
+  .callsTable {
+    min-width: calc(var(--calls-team-width) + var(--calls-total-width) + (var(--official-column-width) * 3));
+    font-size: 0.75rem;
+  }
+
+  .headerCell,
+  .headerCellLeft,
+  .teamCell,
+  .dataCell {
+    padding: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .headerRow {
+    font-size: 0.625rem;
+  }
+
+  .teamCell {
+    font-size: 0.875rem;
+  }
+
+  .teamLogo {
+    width: 16px;
+    height: 16px;
+  }
+}

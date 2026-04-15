@@ -1,0 +1,313 @@
+.page {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.sidebar,
+.content {
+  display: grid;
+  gap: 16px;
+}
+
+.sidebar {
+  align-content: start;
+}
+
+.sidebarHeader {
+  display: grid;
+  gap: 4px;
+  padding: 4px 2px;
+}
+
+.sidebarNav {
+  display: grid;
+  gap: 10px;
+}
+
+.sidebarButton {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.sidebarButton:hover {
+  border-color: var(--highlight-text);
+}
+
+.sidebarButtonActive {
+  border-color: var(--highlight-text);
+  background: color-mix(in srgb, var(--highlight-text) 8%, var(--panel));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--highlight-text) 42%, transparent);
+}
+
+.sidebarButtonKicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sidebarButtonTitle {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.section {
+  display: grid;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.title,
+.subTitle {
+  margin: 0;
+}
+
+.inviteCard,
+.noticeCard,
+.inviteRow,
+.profileCard,
+.rosterCard {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.formGrid,
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.field input,
+.field select {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.field select[multiple] {
+  min-height: 180px;
+}
+
+.scopeGroup {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.scopeLabel {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scopeOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scopeOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.inviteActions,
+.profileActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.primaryButton,
+.saveButton,
+.secondaryButton {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton,
+.saveButton {
+  background: var(--highlight-text);
+  color: var(--bg);
+}
+
+.secondaryButton {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.dangerButton {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #ffebee;
+  color: #b71c1c;
+}
+
+.message {
+  margin-top: 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.inviteRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.inviteEmail,
+.profileName {
+  font-weight: 700;
+}
+
+.inviteMeta,
+.inviteStatus,
+.profileEmail,
+.profileMeta {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.profileCard {
+  display: grid;
+  gap: 14px;
+}
+
+.rosterCard {
+  display: grid;
+  gap: 12px;
+}
+
+.rosterHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rosterGridHeader,
+.rosterRow {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 100px 110px;
+  gap: 10px;
+  align-items: center;
+}
+
+.rosterGridHeader {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rosterRows {
+  display: grid;
+  gap: 10px;
+}
+
+.rosterRow input {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.profileHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.profileMeta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebarNav {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .inviteRow,
+  .profileHeader,
+  .rosterHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .profileMeta {
+    text-align: left;
+  }
+
+  .rosterGridHeader,
+  .rosterRow {
+    grid-template-columns: 1fr;
+  }
+}

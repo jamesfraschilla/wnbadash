@@ -1,0 +1,370 @@
+.page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px 16px 32px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background-color: var(--bg);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.backButton:hover {
+  border-color: var(--muted);
+}
+
+.primaryButton,
+.secondaryButton,
+.deleteButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.deleteButton:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.primaryButton {
+  background: var(--highlight-text);
+  color: var(--bg);
+  border-color: transparent;
+}
+
+.secondaryButton {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.deleteButton {
+  background: #fee2e2;
+  color: #7a0c0c;
+}
+
+.workspace {
+  display: block;
+}
+
+.sidebarCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.detailsCard {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.panelTitle {
+  margin-bottom: 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.detailsCard .panelTitle {
+  text-align: center;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.field input {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.metaText {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.statusMessage {
+  margin-top: 12px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.detailsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.detailsField {
+  flex: 1 1 480px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.detailsLabel {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.detailsField input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.detailsSaveButton {
+  flex: 0 0 auto;
+  min-width: 168px;
+  min-height: 44px;
+}
+
+.canvasArea {
+  min-width: 0;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolLabel {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.toolButton {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toolActive {
+  border-color: var(--highlight-text);
+  color: var(--highlight-text);
+}
+
+.toolChip {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.colorSwatches {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.colorButton {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.colorActive {
+  border-color: var(--highlight-text);
+}
+
+.colorPicker {
+  width: 34px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.clearButton {
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fee2e2;
+  color: #7a0c0c;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.courtWrap {
+  position: relative;
+  width: 100%;
+  background-size: cover;
+  background-position: center;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  margin: 0 auto;
+}
+
+.courtHalf {
+  background-image: url("../assets/Half_Court.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  aspect-ratio: 1574 / 1482;
+}
+
+.courtFull {
+  background-image: url("../assets/Full_Court.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  aspect-ratio: 944 / 1758;
+  max-height: 70vh;
+  max-width: calc(70vh * 0.537);
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.courtToggle {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.toggleButton {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.toggleActive {
+  border-color: var(--highlight-text);
+  color: var(--highlight-text);
+}
+
+@media (max-width: 768px) {
+  .controls {
+    gap: 8px;
+  }
+
+  .detailsRow {
+    align-items: stretch;
+  }
+
+  .detailsField {
+    flex-basis: 100%;
+  }
+
+  .detailsSaveButton {
+    width: 100%;
+  }
+
+  .clearButton {
+    margin-left: 0;
+  }
+}

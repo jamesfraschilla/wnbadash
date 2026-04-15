@@ -1,0 +1,169 @@
+.tableWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: inline-block;
+}
+
+.table {
+  width: auto;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 720px;
+  color: var(--text);
+  --player-number-width: 38px;
+}
+
+.headerRow {
+  border-top: 2px solid var(--text);
+  border-bottom: 2px solid var(--text);
+}
+
+.table th,
+.table td {
+  padding: 5px 4px;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.atcSeparator {
+  border-right: 0.5px solid #9ca3af;
+}
+
+.playerNumberCol {
+  text-align: left;
+  min-width: var(--player-number-width);
+  width: var(--player-number-width);
+  padding-left: 0;
+  padding-right: 6px;
+  position: sticky;
+  left: 0;
+  background-color: var(--bg);
+  z-index: 1;
+}
+
+.playerNameCol {
+  text-align: left;
+  min-width: 160px;
+  padding-left: 0;
+  padding-right: 20px;
+  position: sticky;
+  left: var(--player-number-width);
+  background-color: var(--bg);
+  z-index: 1;
+}
+
+.table th.playerNameCol,
+.table td.playerNameCol {
+  text-align: left;
+}
+
+.table th.playerNumberCol,
+.table th.playerNameCol {
+  z-index: 2;
+}
+
+.teamLogoHeader {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.teamHeaderContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.teamHeaderText {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.playerName {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.playerLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.playerLink:hover {
+  text-decoration: underline;
+}
+
+.position {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.table tbody tr:hover {
+  background-color: var(--row-hover);
+}
+
+.shadedColumn {
+  background-color: var(--panel);
+}
+
+.table tbody tr:hover .shadedColumn {
+  background-color: var(--panel-hover);
+}
+
+.totalsRow {
+  font-weight: 600;
+  border-top: 1px solid var(--border);
+}
+
+.totalsRowAtc {
+  border-bottom: none;
+}
+
+.totalsPercentRow {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pfBlack {
+  color: var(--text);
+}
+
+.pfYellow {
+  color: var(--pf-yellow);
+  font-weight: 700;
+}
+
+.pfRed {
+  color: var(--pf-red);
+  font-weight: 700;
+}
+
+.minutesYellow {
+  color: var(--pf-yellow);
+  font-weight: 700;
+}
+
+.minutesRed {
+  color: var(--pf-red);
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .table {
+    min-width: 100%;
+    font-size: 12px;
+    --player-number-width: 32px;
+  }
+
+  .playerNumberCol {
+    min-width: var(--player-number-width);
+    width: var(--player-number-width);
+  }
+
+  .playerNameCol {
+    min-width: 120px;
+    padding-right: 14px;
+    left: var(--player-number-width);
+  }
+}
