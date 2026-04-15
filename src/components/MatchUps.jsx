@@ -951,7 +951,7 @@ export default function MatchUps({
 
   const { data: remoteMatchupProfiles = [] } = useQuery({
     queryKey: ["matchup-player-profiles"],
-    queryFn: listMatchupProfiles,
+    queryFn: () => listMatchupProfiles("wnba"),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });

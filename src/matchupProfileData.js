@@ -48,13 +48,20 @@ function normalizeNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeLeague(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (text === "gleague") return "gleague";
+  if (text === "wnba") return "wnba";
+  return "nba";
+}
+
 export function normalizeMatchupProfileRecord(row) {
   if (!row || typeof row !== "object") return null;
   const personId = String(row.person_id || row.personId || "").trim();
   if (!personId) return null;
   return {
     personId,
-    league: String(row.league || "nba").trim() === "gleague" ? "gleague" : "nba",
+    league: normalizeLeague(row.league),
     teamId: String(row.team_id || row.teamId || "").trim(),
     fullName: String(row.full_name || row.fullName || "").trim(),
     heightIn: normalizeNumber(row.height_in ?? row.heightIn),
@@ -91,11 +98,18 @@ export function normalizeMatchupProfilePayload(input) {
   };
 }
 
-export async function listMatchupProfiles() {
+export async function listMatchupProfiles(league = null) {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("matchup_player_profiles")
-    .select("*")
+    .select("*");
+
+  const normalizedLeague = league ? normalizeLeague(league) : null;
+  if (normalizedLeague) {
+    query = query.eq("league", normalizedLeague);
+  }
+
+  const { data, error } = await query
     .order("full_name", { ascending: true, nullsFirst: false })
     .order("person_id", { ascending: true });
   if (error) {
@@ -156,4 +170,3 @@ export function buildResolvedMatchupProfileMap(rows) {
     ...buildMatchupProfileMap(rows),
   };
 }
-

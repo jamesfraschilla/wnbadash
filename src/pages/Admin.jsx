@@ -763,7 +763,7 @@ export default function Admin() {
 
   const { data: savedMatchupProfiles = [] } = useQuery({
     queryKey: ["matchup-player-profiles"],
-    queryFn: listMatchupProfiles,
+    queryFn: () => listMatchupProfiles("wnba"),
     enabled: Boolean(user?.id),
   });
 

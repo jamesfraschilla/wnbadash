@@ -596,6 +596,58 @@ function normalizeWnbaScheduleGame(game, seasonYear = "") {
   };
 }
 
+function buildPregameBoxScoreTeam(team) {
+  return {
+    teamId: String(team?.teamId || "").trim(),
+    teamTricode: String(team?.teamTricode || "").trim(),
+    teamName: String(team?.teamName || "").trim(),
+    players: [],
+    totals: {},
+  };
+}
+
+function buildPregameWnbaGame(game, seasonYear = "") {
+  const normalized = normalizeWnbaScheduleGame(game, seasonYear);
+  return {
+    ...normalized,
+    officials: [],
+    callsAgainst: {},
+    timeouts: { home: 7, away: 7 },
+    challenges: {
+      home: { challengesTotal: 0, challengesWon: 0 },
+      away: { challengesTotal: 0, challengesWon: 0 },
+    },
+    playByPlayActions: [],
+    teamStats: {
+      home: {},
+      away: {},
+    },
+    boxScore: {
+      home: buildPregameBoxScoreTeam(normalized.homeTeam),
+      away: buildPregameBoxScoreTeam(normalized.awayTeam),
+    },
+  };
+}
+
+async function fetchWnbaScheduleGameById(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  const payload = await requestWnbaSchedule();
+  const seasonYear = String(payload?.leagueSchedule?.seasonYear || "").trim();
+  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
+    ? payload.leagueSchedule.gameDates
+    : [];
+
+  for (const entry of gameDates) {
+    const games = Array.isArray(entry?.games) ? entry.games : [];
+    const match = games.find((game) => padGameId(game?.gameId) === normalizedGameId);
+    if (match) {
+      return buildPregameWnbaGame(match, seasonYear);
+    }
+  }
+
+  return null;
+}
+
 export async function fetchGamesByDate(dateStr) {
   const normalizedTargetDate = normalizeDateOnly(dateStr);
   const payload = await requestWnbaSchedule();
@@ -654,6 +706,10 @@ export async function fetchGame(gameId, segment = null) {
   ]);
 
   if (boxscoreResult.status !== "fulfilled") {
+    const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
+    if (scheduledGame?.gameStatus === 1) {
+      return scheduledGame;
+    }
     throw boxscoreResult.reason;
   }
 
