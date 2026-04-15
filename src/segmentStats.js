@@ -31,7 +31,7 @@ function parseClockValue(clock) {
 }
 
 function periodLengthSeconds(period) {
-  return period <= 4 ? 12 * 60 : 5 * 60;
+  return period <= 4 ? 10 * 60 : 5 * 60;
 }
 
 export function segmentPeriods(segment) {

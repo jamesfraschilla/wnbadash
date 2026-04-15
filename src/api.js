@@ -2,6 +2,8 @@ import { gLeagueHeadshotOverrides } from "./gLeagueHeadshotOverrides.js";
 
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
+const WNBA_LIVE_BOXSCORE_BASE = "https://cdn.wnba.com/static/json/liveData/boxscore";
+const WNBA_LIVE_PLAYBYPLAY_BASE = "https://cdn.wnba.com/static/json/liveData/playbyplay";
 const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   ? `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1`
   : "";
@@ -12,6 +14,77 @@ async function requestJson(url) {
     throw new Error(`Request failed: ${res.status}`);
   }
   return res.json();
+}
+
+function padGameId(gameId) {
+  return String(gameId || "").trim().padStart(10, "0");
+}
+
+function numberValue(...values) {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function stringValue(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function objectValue(...values) {
+  for (const value of values) {
+    if (value && typeof value === "object" && !Array.isArray(value)) return value;
+  }
+  return {};
+}
+
+function arrayValue(...values) {
+  for (const value of values) {
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+function normalizeIsoDuration(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = (safeSeconds - minutes * 60).toFixed(2).padStart(5, "0");
+  return `PT${minutes}M${remainder}S`;
+}
+
+function formatClockFromSeconds(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds - minutes * 60;
+  const wholeSeconds = Math.floor(remainder);
+  const decimals = remainder - wholeSeconds;
+  if (decimals > 0) {
+    const hundredths = Math.round(decimals * 100);
+    return `${minutes}:${String(wholeSeconds).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+  }
+  return `${minutes}:${String(wholeSeconds).padStart(2, "0")}`;
+}
+
+function parseClockToSeconds(clock) {
+  const text = String(clock || "").trim();
+  if (!text) return 0;
+  if (text.startsWith("PT")) {
+    const match = /PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/.exec(text);
+    if (!match) return 0;
+    return (Number(match[1] || 0) * 60) + Number(match[2] || 0);
+  }
+  const match = /^(\d+):(\d{2})(?:\.(\d{1,2}))?$/.exec(text);
+  if (!match) return 0;
+  return (Number(match[1] || 0) * 60) + Number(match[2] || 0) + (Number(match[3] || 0) / 100);
+}
+
+function wnbaPeriodLengthSeconds(period) {
+  return Number(period) <= 4 ? 10 * 60 : 5 * 60;
 }
 
 function normalizeDateOnly(value) {
@@ -43,6 +116,12 @@ function normalizeStatus(game) {
   return 1;
 }
 
+function deriveLocation(teamId, homeTeamId, awayTeamId) {
+  if (String(teamId || "") === String(homeTeamId || "")) return "h";
+  if (String(teamId || "") === String(awayTeamId || "")) return "v";
+  return "";
+}
+
 function normalizeTeam(team) {
   return {
     teamId: String(team?.teamId || team?.id || "").trim(),
@@ -53,6 +132,418 @@ function normalizeTeam(team) {
     losses: Number(team?.losses ?? team?.loss ?? 0) || 0,
     score: Number(team?.score ?? team?.points ?? 0) || 0,
     timeoutsRemaining: Number(team?.timeoutsRemaining ?? 0) || 0,
+  };
+}
+
+function normalizeWnbaAction(action, homeTeamId, awayTeamId) {
+  const teamId = stringValue(action?.teamId, action?.team_id);
+  const personId = stringValue(action?.personId, action?.person_id);
+  return {
+    actionNumber: numberValue(action?.actionNumber, action?.action_number),
+    clock: stringValue(action?.clock),
+    timeActual: stringValue(action?.timeActual, action?.time_actual),
+    period: numberValue(action?.period),
+    teamId,
+    teamTricode: stringValue(action?.teamTricode, action?.team_tricode),
+    actionType: stringValue(action?.actionType, action?.action_type).toLowerCase(),
+    subType: stringValue(action?.subType, action?.sub_type).toLowerCase(),
+    descriptor: stringValue(action?.descriptor),
+    qualifiers: arrayValue(action?.qualifiers),
+    personId,
+    playerName: stringValue(action?.playerName, action?.player_name),
+    playerNameI: stringValue(action?.playerNameI, action?.player_name_i),
+    x: action?.x ?? action?.locX ?? action?.xLegacy ?? null,
+    y: action?.y ?? action?.locY ?? action?.yLegacy ?? null,
+    side: stringValue(action?.side),
+    shotDistance: numberValue(action?.shotDistance, action?.shot_distance) || null,
+    shotResult: stringValue(action?.shotResult, action?.shot_result),
+    possession: stringValue(action?.possession, action?.offenseTeamId, action?.offense_team_id),
+    isFieldGoal: numberValue(action?.isFieldGoal, action?.is_field_goal),
+    scoreHome: stringValue(action?.scoreHome, action?.homeScore, action?.score_home, "0"),
+    scoreAway: stringValue(action?.scoreAway, action?.awayScore, action?.score_away, "0"),
+    edited: stringValue(action?.edited),
+    orderNumber: numberValue(action?.orderNumber, action?.order, action?.order_number),
+    location: deriveLocation(teamId, homeTeamId, awayTeamId),
+    description: stringValue(action?.description),
+    jumpBallRecoveredNameInitial: stringValue(action?.jumpBallRecoveredNameInitial, action?.jump_ball_recovered_name),
+    jumpBallRecoveredPersonId: stringValue(action?.jumpBallRecoveredPersonId, action?.jump_ball_recoverd_person_id),
+    jumpBallWonPlayerNameI: stringValue(action?.jumpBallWonPlayerNameI, action?.jump_ball_won_player_name),
+    jumpBallWonPersonId: stringValue(action?.jumpBallWonPersonId, action?.jump_ball_won_person_id),
+    jumpBallLostPlayerNameI: stringValue(action?.jumpBallLostPlayerNameI, action?.jump_ball_lost_player_name),
+    jumpBallLostPersonId: stringValue(action?.jumpBallLostPersonId, action?.jump_ball_lost_person_id),
+    pointsTotal: numberValue(action?.pointsTotal, action?.points, action?.value),
+    reboundTotal: numberValue(action?.reboundTotal),
+    reboundDefensiveTotal: numberValue(action?.reboundDefensiveTotal),
+    reboundOffensiveTotal: numberValue(action?.reboundOffensiveTotal),
+    assistPlayerNameI: stringValue(action?.assistPlayerNameI),
+    assistPersonId: stringValue(action?.assistPersonId, action?.assist_person_id),
+    assistTotal: numberValue(action?.assistTotal),
+    foulPersonalTotal: numberValue(action?.foulPersonalTotal),
+    foulTechnicalTotal: numberValue(action?.foulTechnicalTotal),
+    foulDrawnPlayerName: stringValue(action?.foulDrawnPlayerName),
+    foulDrawnPersonId: stringValue(action?.foulDrawnPersonId),
+    blockPlayerName: stringValue(action?.blockPlayerName),
+    blockPersonId: stringValue(action?.blockPersonId),
+    stealPlayerNameI: stringValue(action?.stealPlayerNameI),
+    stealPersonId: stringValue(action?.stealPersonId),
+    turnoverTotal: numberValue(action?.turnoverTotal),
+    officialId: stringValue(action?.officialId),
+    isTargetScoreLastPeriod: Boolean(action?.isTargetScoreLastPeriod),
+  };
+}
+
+function classifyShot(action) {
+  if (action.actionType === "3pt") return "three";
+  const distance = Number(action.shotDistance || 0);
+  if (distance <= 4.9) return "rim";
+  return "mid";
+}
+
+function buildShotMaps(actions) {
+  const players = new Map();
+  const teams = new Map();
+
+  const ensure = (map, key) => {
+    if (!map.has(key)) {
+      map.set(key, {
+        rimFieldGoalsMade: 0,
+        rimFieldGoalsAttempted: 0,
+        midFieldGoalsMade: 0,
+        midFieldGoalsAttempted: 0,
+      });
+    }
+    return map.get(key);
+  };
+
+  (actions || []).forEach((action) => {
+    if (action.actionType !== "2pt" && action.actionType !== "3pt") return;
+    const shotType = classifyShot(action);
+    if (shotType === "three") return;
+
+    const personId = String(action.personId || "").trim();
+    const teamId = String(action.teamId || "").trim();
+    const targetMaps = [
+      personId ? ensure(players, personId) : null,
+      teamId ? ensure(teams, teamId) : null,
+    ].filter(Boolean);
+
+    targetMaps.forEach((entry) => {
+      if (shotType === "rim") entry.rimFieldGoalsAttempted += 1;
+      if (shotType === "mid") entry.midFieldGoalsAttempted += 1;
+      if (action.shotResult === "Made" && shotType === "rim") entry.rimFieldGoalsMade += 1;
+      if (action.shotResult === "Made" && shotType === "mid") entry.midFieldGoalsMade += 1;
+    });
+  });
+
+  return { players, teams };
+}
+
+function computeTeamAdvancedStats(totals, opponentTotals) {
+  const possessions = (
+    numberValue(totals?.fieldGoalsAttempted) +
+    (0.44 * numberValue(totals?.freeThrowsAttempted)) -
+    numberValue(totals?.reboundsOffensive) +
+    numberValue(totals?.turnovers)
+  );
+  const opponentPossessions = (
+    numberValue(opponentTotals?.fieldGoalsAttempted) +
+    (0.44 * numberValue(opponentTotals?.freeThrowsAttempted)) -
+    numberValue(opponentTotals?.reboundsOffensive) +
+    numberValue(opponentTotals?.turnovers)
+  );
+  const offensiveRating = possessions ? (100 * numberValue(totals?.points) / possessions) : 0;
+  const defensiveRating = opponentPossessions ? (100 * numberValue(opponentTotals?.points) / opponentPossessions) : 0;
+  return {
+    possessions,
+    offensiveRating,
+    defensiveRating,
+    netRating: offensiveRating - defensiveRating,
+    advancedStats: {
+      deflections: numberValue(totals?.deflections),
+    },
+  };
+}
+
+function normalizeWnbaLiveTeam(team, shotSplits) {
+  const totalsSource = objectValue(team?.statistics);
+  const teamId = stringValue(team?.teamId, team?.team_id);
+  const teamName = stringValue(team?.teamName, team?.team_name, team?.teamTricode);
+  const players = arrayValue(team?.players).map((player, index) => {
+    const name = objectValue(player?.name);
+    const stats = objectValue(player?.statistics);
+    const personId = stringValue(player?.personId, player?.person_id);
+    const split = shotSplits.players.get(personId) || {};
+    const firstName = stringValue(name?.firstName, player?.firstName, player?.first_name);
+    const familyName = stringValue(name?.familyName, player?.familyName, player?.family_name);
+    return {
+      personId,
+      firstName,
+      familyName,
+      fullName: stringValue(player?.fullName, `${firstName} ${familyName}`),
+      name: stringValue(player?.fullName, `${firstName} ${familyName}`),
+      nameI: stringValue(player?.nameI, player?.name_i, `${firstName.slice(0, 1)}. ${familyName}`.trim()),
+      jerseyNum: stringValue(player?.jerseyNum, player?.jersey_num),
+      position: stringValue(player?.position),
+      starter: Boolean(player?.starter),
+      order: numberValue(player?.order, index),
+      minutes: stringValue(stats?.minutes, player?.minutes, normalizeIsoDuration(0)),
+      plusMinusPoints: numberValue(stats?.plusMinusPoints, stats?.plus_minus_points, player?.plusMinusPoints),
+      points: numberValue(stats?.points),
+      reboundsTotal: numberValue(stats?.reboundsTotal, stats?.rebounds_total),
+      reboundsOffensive: numberValue(stats?.reboundsOffensive, stats?.rebounds_offensive),
+      assists: numberValue(stats?.assists),
+      blocks: numberValue(stats?.blocks),
+      steals: numberValue(stats?.steals),
+      turnovers: numberValue(stats?.turnovers),
+      foulsPersonal: numberValue(stats?.foulsPersonal, stats?.fouls_personal),
+      fieldGoalsMade: numberValue(stats?.fieldGoalsMade, stats?.field_goals_made),
+      fieldGoalsAttempted: numberValue(stats?.fieldGoalsAttempted, stats?.field_goals_attempted),
+      threePointersMade: numberValue(stats?.threePointersMade, stats?.three_pointers_made),
+      threePointersAttempted: numberValue(stats?.threePointersAttempted, stats?.three_pointers_attempted),
+      freeThrowsMade: numberValue(stats?.freeThrowsMade, stats?.free_throws_made),
+      freeThrowsAttempted: numberValue(stats?.freeThrowsAttempted, stats?.free_throws_attempted),
+      ortg: numberValue(stats?.offensiveRating, stats?.offensive_rating),
+      drtg: numberValue(stats?.defensiveRating, stats?.defensive_rating),
+      rimFieldGoalsMade: numberValue(stats?.rimFieldGoalsMade, split.rimFieldGoalsMade),
+      rimFieldGoalsAttempted: numberValue(stats?.rimFieldGoalsAttempted, split.rimFieldGoalsAttempted),
+      midFieldGoalsMade: numberValue(stats?.midFieldGoalsMade, split.midFieldGoalsMade),
+      midFieldGoalsAttempted: numberValue(stats?.midFieldGoalsAttempted, split.midFieldGoalsAttempted),
+      chargesDrawn: numberValue(stats?.chargesDrawn),
+      deflections: numberValue(stats?.deflections),
+    };
+  });
+
+  players.sort((a, b) => a.order - b.order || a.familyName.localeCompare(b.familyName));
+
+  const splitTotals = shotSplits.teams.get(teamId) || {};
+  return {
+    teamId,
+    teamName,
+    teamTricode: stringValue(team?.teamTricode, team?.team_tricode),
+    players,
+    totals: {
+      points: numberValue(totalsSource?.points, team?.score),
+      reboundsTotal: numberValue(totalsSource?.reboundsTotal, totalsSource?.rebounds_total),
+      reboundsOffensive: numberValue(totalsSource?.reboundsOffensive, totalsSource?.rebounds_offensive),
+      assists: numberValue(totalsSource?.assists),
+      blocks: numberValue(totalsSource?.blocks),
+      steals: numberValue(totalsSource?.steals),
+      turnovers: numberValue(totalsSource?.turnovers),
+      foulsPersonal: numberValue(totalsSource?.foulsPersonal, totalsSource?.fouls_personal),
+      fieldGoalsMade: numberValue(totalsSource?.fieldGoalsMade, totalsSource?.field_goals_made),
+      fieldGoalsAttempted: numberValue(totalsSource?.fieldGoalsAttempted, totalsSource?.field_goals_attempted),
+      threePointersMade: numberValue(totalsSource?.threePointersMade, totalsSource?.three_pointers_made),
+      threePointersAttempted: numberValue(totalsSource?.threePointersAttempted, totalsSource?.three_pointers_attempted),
+      freeThrowsMade: numberValue(totalsSource?.freeThrowsMade, totalsSource?.free_throws_made),
+      freeThrowsAttempted: numberValue(totalsSource?.freeThrowsAttempted, totalsSource?.free_throws_attempted),
+      rimFieldGoalsMade: numberValue(totalsSource?.rimFieldGoalsMade, splitTotals.rimFieldGoalsMade),
+      rimFieldGoalsAttempted: numberValue(totalsSource?.rimFieldGoalsAttempted, splitTotals.rimFieldGoalsAttempted),
+      midFieldGoalsMade: numberValue(totalsSource?.midFieldGoalsMade, splitTotals.midFieldGoalsMade),
+      midFieldGoalsAttempted: numberValue(totalsSource?.midFieldGoalsAttempted, splitTotals.midFieldGoalsAttempted),
+      deflections: numberValue(totalsSource?.deflections),
+    },
+  };
+}
+
+function extractStarters(players) {
+  const starters = players.filter((player) => player.starter).map((player) => player.personId);
+  if (starters.length === 5) return starters;
+  return players.slice(0, 5).map((player) => player.personId);
+}
+
+function buildMinutesPlayers(lineup, playerMap) {
+  return Array.from(lineup).map((personId, rowPosition) => {
+    const player = playerMap.get(personId) || {};
+    return {
+      personId,
+      nameI: stringValue(player.nameI, player.name, `${stringValue(player.firstName).slice(0, 1)}. ${stringValue(player.familyName)}`.trim()),
+      jerseyNum: stringValue(player.jerseyNum),
+      rowPosition,
+    };
+  });
+}
+
+function buildWnbaMinutesData(game) {
+  const homePlayers = arrayValue(game?.boxScore?.home?.players);
+  const awayPlayers = arrayValue(game?.boxScore?.away?.players);
+  const actions = arrayValue(game?.playByPlayActions).slice().sort((a, b) => (
+    numberValue(a.orderNumber, a.actionNumber) - numberValue(b.orderNumber, b.actionNumber)
+  ));
+  if (!homePlayers.length || !awayPlayers.length) {
+    return {
+      gameId: game?.gameId,
+      gameStatus: game?.gameStatus,
+      homeTeam: game?.homeTeam,
+      awayTeam: game?.awayTeam,
+      periods: [],
+    };
+  }
+
+  const homePlayerMap = new Map(homePlayers.map((player) => [String(player.personId), player]));
+  const awayPlayerMap = new Map(awayPlayers.map((player) => [String(player.personId), player]));
+  let currentHomeLineup = extractStarters(homePlayers);
+  let currentAwayLineup = extractStarters(awayPlayers);
+  let currentHomeScore = 0;
+  let currentAwayScore = 0;
+
+  const periods = [];
+  const grouped = new Map();
+  actions.forEach((action) => {
+    const period = numberValue(action.period);
+    if (!period) return;
+    if (!grouped.has(period)) grouped.set(period, []);
+    grouped.get(period).push(action);
+  });
+
+  const periodNumbers = Array.from(grouped.keys()).sort((a, b) => a - b);
+  periodNumbers.forEach((period) => {
+    const periodActions = grouped.get(period) || [];
+    const periodLength = wnbaPeriodLengthSeconds(period);
+    let stintStart = periodLength;
+    let blockStartHome = currentHomeScore;
+    let blockStartAway = currentAwayScore;
+    let inSubBlock = false;
+    const stints = [];
+
+    const finalizeStint = (endSeconds) => {
+      const playersAway = buildMinutesPlayers(currentAwayLineup, awayPlayerMap);
+      const playersHome = buildMinutesPlayers(currentHomeLineup, homePlayerMap);
+      const prev = stints[stints.length - 1] || null;
+      stints.push({
+        startClock: formatClockFromSeconds(stintStart),
+        endClock: formatClockFromSeconds(endSeconds),
+        plusMinus: (currentHomeScore - blockStartHome) - (currentAwayScore - blockStartAway),
+        awayScore: currentAwayScore - blockStartAway,
+        homeScore: currentHomeScore - blockStartHome,
+        playersAway,
+        playersHome,
+        prevPlayersAway: prev?.playersAway || [],
+        prevPlayersHome: prev?.playersHome || [],
+        nextPlayersAway: [],
+        nextPlayersHome: [],
+      });
+      stintStart = endSeconds;
+      blockStartHome = currentHomeScore;
+      blockStartAway = currentAwayScore;
+    };
+
+    periodActions.forEach((action) => {
+      currentHomeScore = numberValue(action.scoreHome, currentHomeScore);
+      currentAwayScore = numberValue(action.scoreAway, currentAwayScore);
+      if (action.actionType !== "substitution") {
+        inSubBlock = false;
+        return;
+      }
+      const actionSeconds = parseClockToSeconds(action.clock);
+      if (!inSubBlock) {
+        finalizeStint(actionSeconds);
+        inSubBlock = true;
+      }
+      const personId = String(action.personId || "");
+      if (!personId) return;
+      const target = String(action.teamId || "") === String(game?.homeTeam?.teamId || "")
+        ? currentHomeLineup
+        : currentAwayLineup;
+      if (action.subType === "out") {
+        const index = target.indexOf(personId);
+        if (index >= 0) target.splice(index, 1);
+      } else if (action.subType === "in" && !target.includes(personId)) {
+        target.push(personId);
+      }
+    });
+
+    finalizeStint(game?.gameStatus === 2 && game?.period === period ? parseClockToSeconds(game?.gameClock) : 0);
+
+    stints.forEach((stint, index) => {
+      stint.nextPlayersAway = stints[index + 1]?.playersAway || stint.playersAway;
+      stint.nextPlayersHome = stints[index + 1]?.playersHome || stint.playersHome;
+    });
+
+    periods.push({
+      period,
+      periodLabel: period <= 4 ? `Q${period}` : `OT${period - 4 || 1}`,
+      stints,
+    });
+  });
+
+  return {
+    gameId: game?.gameId,
+    gameStatus: game?.gameStatus,
+    homeTeam: {
+      teamId: game?.homeTeam?.teamId,
+      teamName: game?.homeTeam?.teamName,
+      teamTricode: game?.homeTeam?.teamTricode,
+      score: game?.homeTeam?.score,
+    },
+    awayTeam: {
+      teamId: game?.awayTeam?.teamId,
+      teamName: game?.awayTeam?.teamName,
+      teamTricode: game?.awayTeam?.teamTricode,
+      score: game?.awayTeam?.score,
+    },
+    periods,
+  };
+}
+
+function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload) {
+  const gameSource = objectValue(boxscorePayload?.game, playByPlayPayload?.game);
+  const homeTeamSource = objectValue(gameSource?.homeTeam);
+  const awayTeamSource = objectValue(gameSource?.awayTeam);
+  const homeTeam = normalizeTeam(homeTeamSource);
+  const awayTeam = normalizeTeam(awayTeamSource);
+  const actions = arrayValue(playByPlayPayload?.game?.actions).map((action) => (
+    normalizeWnbaAction(action, homeTeam.teamId, awayTeam.teamId)
+  ));
+  const shotSplits = buildShotMaps(actions);
+  const homeBoxScore = normalizeWnbaLiveTeam(homeTeamSource, shotSplits);
+  const awayBoxScore = normalizeWnbaLiveTeam(awayTeamSource, shotSplits);
+  const homeAdvanced = computeTeamAdvancedStats(homeBoxScore.totals, awayBoxScore.totals);
+  const awayAdvanced = computeTeamAdvancedStats(awayBoxScore.totals, homeBoxScore.totals);
+
+  const officials = arrayValue(gameSource?.officials).map((official) => ({
+    personId: stringValue(official?.personId, official?.person_id, official?.officialId),
+    firstName: stringValue(official?.firstName, official?.first_name),
+    familyName: stringValue(official?.familyName, official?.family_name, official?.lastName, official?.last_name),
+    jerseyNum: stringValue(official?.jerseyNum, official?.jersey_num),
+  })).filter((official) => official.personId || official.firstName || official.familyName);
+
+  return {
+    gameId: stringValue(gameSource?.gameId, boxscorePayload?.game?.gameId),
+    gameCode: stringValue(gameSource?.gameCode, gameSource?.gamecode),
+    gameStatus: normalizeStatus(gameSource),
+    gameStatusText: stringValue(gameSource?.gameStatusText, gameSource?.gameStatus),
+    period: numberValue(gameSource?.period, gameSource?.gameStatusPeriod),
+    gameClock: stringValue(gameSource?.gameClock, gameSource?.clock),
+    gameTimeUTC: stringValue(gameSource?.gameTimeUTC, gameSource?.gameEt, gameSource?.gameDateTimeUTC),
+    gameEt: stringValue(gameSource?.gameEt, gameSource?.gameDateEst, gameSource?.gameDateTimeEst),
+    seasonYear: stringValue(gameSource?.seasonYear, gameSource?.season),
+    seasonType: stringValue(gameSource?.seasonType),
+    arena: {
+      arenaName: stringValue(gameSource?.arena?.arenaName, gameSource?.arenaName),
+      arenaState: stringValue(gameSource?.arena?.arenaState, gameSource?.arenaState),
+      arenaCity: stringValue(gameSource?.arena?.arenaCity, gameSource?.arenaCity),
+    },
+    homeTeam,
+    awayTeam,
+    officials,
+    callsAgainst: {},
+    timeouts: {
+      home: numberValue(homeTeamSource?.timeoutsRemaining, homeTeam.timeoutsRemaining),
+      away: numberValue(awayTeamSource?.timeoutsRemaining, awayTeam.timeoutsRemaining),
+    },
+    challenges: {
+      home: { challengesTotal: 0, challengesWon: 0 },
+      away: { challengesTotal: 0, challengesWon: 0 },
+    },
+    playByPlayActions: actions,
+    teamStats: {
+      home: homeAdvanced,
+      away: awayAdvanced,
+    },
+    boxScore: {
+      home: homeBoxScore,
+      away: awayBoxScore,
+    },
   };
 }
 
@@ -111,15 +602,36 @@ export async function fetchGamesByDate(dateStr) {
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
 }
 
-export function fetchGame(gameId, segment = null) {
-  const segmentParam = segment ? `?segment=${segment}` : "";
-  const url = `${API_BASE}/games/${gameId}${segmentParam}`;
-  return requestJson(url);
+export async function fetchGame(gameId, segment = null) {
+  const normalizedGameId = padGameId(gameId);
+  const isWnbaGame = normalizedGameId.startsWith("10");
+  if (!isWnbaGame) {
+    const segmentParam = segment ? `?segment=${segment}` : "";
+    const url = `${API_BASE}/games/${gameId}${segmentParam}`;
+    return requestJson(url);
+  }
+
+  const [boxscoreResult, playByPlayResult] = await Promise.allSettled([
+    requestJson(`${WNBA_LIVE_BOXSCORE_BASE}/boxscore_${normalizedGameId}.json`),
+    requestJson(`${WNBA_LIVE_PLAYBYPLAY_BASE}/playbyplay_${normalizedGameId}.json`),
+  ]);
+
+  if (boxscoreResult.status !== "fulfilled") {
+    throw boxscoreResult.reason;
+  }
+
+  const playByPlayPayload = playByPlayResult.status === "fulfilled" ? playByPlayResult.value : {};
+  return normalizeWnbaLiveGame(boxscoreResult.value, playByPlayPayload);
 }
 
-export function fetchMinutes(gameId) {
-  const url = `${API_BASE}/games/${gameId}/minutes`;
-  return requestJson(url);
+export async function fetchMinutes(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  if (!normalizedGameId.startsWith("10")) {
+    const url = `${API_BASE}/games/${gameId}/minutes`;
+    return requestJson(url);
+  }
+  const game = await fetchGame(normalizedGameId);
+  return buildWnbaMinutesData(game);
 }
 
 export function teamLogoUrl(teamId, league = null) {
@@ -220,5 +732,8 @@ export function nbaEventVideoUrl({ gameId, actionNumber, seasonYear, title }) {
   if (season) params.set("Season", season);
   if (title) params.set("title", String(title));
 
-  return `https://www.nba.com/stats/events?${params.toString()}`;
+  const domain = String(gameId).startsWith("10")
+    ? "https://stats.wnba.com/events"
+    : "https://www.nba.com/stats/events";
+  return `${domain}?${params.toString()}`;
 }
