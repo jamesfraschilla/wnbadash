@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchCurrentGLeagueRosters, fetchCurrentNbaRosters, teamLogoUrl } from "../api.js";
+import { fetchCurrentWnbaRosters, fetchWnbaTeams, teamLogoUrl } from "../api.js";
 import { useAuth } from "../auth/useAuth.js";
-import {
-  GLEAGUE_TEAMS,
-  getLeagueTeam,
-  getNbaTeamRoster,
-  NBA_TEAMS,
-} from "../data/nbaTeams.js";
 import {
   deleteSavedToolRecord,
   deleteSavedToolRecordRemote,
@@ -21,12 +15,11 @@ import { exportMatchupGraphic } from "./matchupGraphicExport.js";
 import styles from "./Tools.module.css";
 
 const EMPTY_PLAYER_IDS = Array(5).fill("");
-const WIZARDS_TEAM_ID = "1610612764";
-const CAPITAL_CITY_TEAM_ID = "1612709928";
+const DEFAULT_TEAM_ID = "1611661322";
 
 function buildEmptyDraft() {
   return {
-    league: "nba",
+    league: "wnba",
     leftTeamId: "",
     rightTeamId: "",
     leftPlayerIds: [...EMPTY_PLAYER_IDS],
@@ -43,36 +36,25 @@ function normalizeTeamScopes(teamScopes) {
   );
 }
 
-function buildDefaultDraftForLeague(league, teamScopes) {
-  const normalizedLeague = league === "gleague" ? "gleague" : "nba";
+function buildDefaultDraftForLeague(teamScopes) {
   const scopes = normalizeTeamScopes(teamScopes);
   const nextDraft = {
     ...buildEmptyDraft(),
-    league: normalizedLeague,
+    league: "wnba",
+    leftTeamId: scopes.has("mystics") ? DEFAULT_TEAM_ID : "",
+    logoTeamId: scopes.has("mystics") ? DEFAULT_TEAM_ID : "",
   };
 
-  if (normalizedLeague === "nba" && scopes.has("washington")) {
-    nextDraft.leftTeamId = WIZARDS_TEAM_ID;
-    nextDraft.logoTeamId = WIZARDS_TEAM_ID;
-  }
-
-  if (normalizedLeague === "gleague" && scopes.has("capital_city")) {
-    nextDraft.leftTeamId = CAPITAL_CITY_TEAM_ID;
-    nextDraft.logoTeamId = CAPITAL_CITY_TEAM_ID;
+  if (!nextDraft.leftTeamId && scopes.has("washington")) {
+    nextDraft.leftTeamId = DEFAULT_TEAM_ID;
+    nextDraft.logoTeamId = DEFAULT_TEAM_ID;
   }
 
   return nextDraft;
 }
 
 function buildDefaultDraftForProfile(profile) {
-  const scopes = normalizeTeamScopes(profile?.team_scopes);
-  if (scopes.has("washington")) {
-    return buildDefaultDraftForLeague("nba", scopes);
-  }
-  if (scopes.has("capital_city")) {
-    return buildDefaultDraftForLeague("gleague", scopes);
-  }
-  return buildEmptyDraft();
+  return buildDefaultDraftForLeague(profile?.team_scopes);
 }
 
 function isDraftBlank(draft) {
@@ -87,9 +69,8 @@ function isDraftBlank(draft) {
 }
 
 function hydrateDraftPayload(payload, fallbackDraft) {
-  const normalizedLeague = String(payload?.league || fallbackDraft?.league || "nba").trim() === "gleague" ? "gleague" : "nba";
   return {
-    league: normalizedLeague,
+    league: "wnba",
     leftTeamId: String(payload?.leftTeamId || "").trim() || String(fallbackDraft?.leftTeamId || "").trim(),
     rightTeamId: String(payload?.rightTeamId || "").trim(),
     leftPlayerIds: [...EMPTY_PLAYER_IDS].map((_, index) => String(payload?.leftPlayerIds?.[index] || "").trim()),
@@ -112,16 +93,15 @@ function teamDisplayCode(team) {
 }
 
 function buildDraftTitle(draft) {
-  const league = String(draft?.league || "nba").trim() === "gleague" ? "gleague" : "nba";
-  const leftTeam = getLeagueTeam(draft?.leftTeamId, league);
-  const rightTeam = getLeagueTeam(draft?.rightTeamId, league);
+  const leftTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.leftTeamId) || null;
+  const rightTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.rightTeamId) || null;
   if (leftTeam && rightTeam) {
     return `${teamDisplayCode(leftTeam)} vs ${teamDisplayCode(rightTeam)} Match-Up`;
   }
   if (leftTeam || rightTeam) {
-    return `${teamDisplayCode(leftTeam || rightTeam) || (league === "gleague" ? "G League" : "NBA")} Match-Up`;
+    return `${teamDisplayCode(leftTeam || rightTeam) || "WNBA"} Match-Up`;
   }
-  return league === "gleague" ? "G League Match-Up Draft" : "NBA Match-Up Draft";
+  return "WNBA Match-Up Draft";
 }
 
 function formatPlayerOption(player) {
@@ -201,27 +181,26 @@ export default function Tools() {
 
   const canUseTools = hasFeature("tools");
   const draftParam = String(params.get("draft") || "").trim();
-  const { data: remoteNbaRostersPayload } = useQuery({
-    queryKey: ["tools-current-nba-rosters"],
-    queryFn: fetchCurrentNbaRosters,
+  const { data: availableTeams = [] } = useQuery({
+    queryKey: ["tools-wnba-teams"],
+    queryFn: fetchWnbaTeams,
     enabled: canUseTools,
     staleTime: 6 * 60 * 60 * 1000,
-    retry: 1,
   });
-  const { data: remoteGLeagueRostersPayload } = useQuery({
-    queryKey: ["tools-current-gleague-rosters"],
-    queryFn: fetchCurrentGLeagueRosters,
+  const { data: remoteWnbaRostersPayload } = useQuery({
+    queryKey: ["tools-current-wnba-rosters"],
+    queryFn: fetchCurrentWnbaRosters,
     enabled: canUseTools,
     staleTime: 6 * 60 * 60 * 1000,
     retry: 1,
   });
 
-  const nbaRosterMap = useMemo(() => {
-    const remoteTeams = remoteNbaRostersPayload?.teams && typeof remoteNbaRostersPayload.teams === "object"
-      ? remoteNbaRostersPayload.teams
+  const wnbaRosterMap = useMemo(() => {
+    const remoteTeams = remoteWnbaRostersPayload?.teams && typeof remoteWnbaRostersPayload.teams === "object"
+      ? remoteWnbaRostersPayload.teams
       : {};
     const next = {};
-    NBA_TEAMS.forEach((team) => {
+    availableTeams.forEach((team) => {
       const remoteRoster = Array.isArray(remoteTeams?.[team.teamId]?.players)
         ? remoteTeams[team.teamId].players.map((player) => ({
           personId: String(player?.personId || "").trim(),
@@ -232,39 +211,18 @@ export default function Tools() {
           teamId: String(player?.teamId || team.teamId).trim() || team.teamId,
         })).filter((player) => player.personId && player.fullName)
         : [];
-      next[team.teamId] = remoteRoster.length ? remoteRoster : getNbaTeamRoster(team.teamId);
+      next[team.teamId] = remoteRoster;
     });
     return next;
-  }, [remoteNbaRostersPayload]);
+  }, [availableTeams, remoteWnbaRostersPayload]);
 
-  const gLeagueRosterMap = useMemo(() => {
-    const remoteTeams = remoteGLeagueRostersPayload?.teams && typeof remoteGLeagueRostersPayload.teams === "object"
-      ? remoteGLeagueRostersPayload.teams
-      : {};
-    const next = {};
-    GLEAGUE_TEAMS.forEach((team) => {
-      next[team.teamId] = Array.isArray(remoteTeams?.[team.teamId]?.players)
-        ? remoteTeams[team.teamId].players.map((player) => ({
-          personId: String(player?.personId || "").trim(),
-          firstName: String(player?.firstName || "").trim(),
-          familyName: String(player?.familyName || "").trim(),
-          fullName: String(player?.fullName || "").trim(),
-          jerseyNum: String(player?.jerseyNum || "").trim(),
-          teamId: String(player?.teamId || team.teamId).trim() || team.teamId,
-        })).filter((player) => player.personId && player.fullName)
-        : [];
-    });
-    return next;
-  }, [remoteGLeagueRostersPayload]);
-
-  const league = draft.league === "gleague" ? "gleague" : "nba";
-  const availableTeams = league === "gleague" ? GLEAGUE_TEAMS : NBA_TEAMS;
-  const rosterMap = league === "gleague" ? gLeagueRosterMap : nbaRosterMap;
-  const remoteRostersPayload = league === "gleague" ? remoteGLeagueRostersPayload : remoteNbaRostersPayload;
+  const league = "wnba";
+  const rosterMap = wnbaRosterMap;
+  const remoteRostersPayload = remoteWnbaRostersPayload;
   const leftRoster = useMemo(() => rosterMap[String(draft.leftTeamId || "")] || [], [draft.leftTeamId, rosterMap]);
   const rightRoster = useMemo(() => rosterMap[String(draft.rightTeamId || "")] || [], [draft.rightTeamId, rosterMap]);
-  const leftTeam = useMemo(() => getLeagueTeam(draft.leftTeamId, league), [draft.leftTeamId, league]);
-  const rightTeam = useMemo(() => getLeagueTeam(draft.rightTeamId, league), [draft.rightTeamId, league]);
+  const leftTeam = useMemo(() => availableTeams.find((team) => team.teamId === draft.leftTeamId) || null, [availableTeams, draft.leftTeamId]);
+  const rightTeam = useMemo(() => availableTeams.find((team) => team.teamId === draft.rightTeamId) || null, [availableTeams, draft.rightTeamId]);
   const selectedLeftPlayers = useMemo(
     () => resolveSelectedPlayers(draft.leftPlayerIds, leftRoster),
     [draft.leftPlayerIds, leftRoster]
@@ -363,12 +321,6 @@ export default function Tools() {
     setSaveStatus("");
   };
 
-  const handleLeagueChange = (nextLeague) => {
-    const normalizedLeague = nextLeague === "gleague" ? "gleague" : "nba";
-    setDraft(buildDefaultDraftForLeague(normalizedLeague, profile?.team_scopes));
-    setSaveStatus("");
-  };
-
   const handleSave = async () => {
     if (!user?.id) return;
     if (busyAction) return;
@@ -378,7 +330,7 @@ export default function Tools() {
     const record = {
       id,
       type: "matchup_graphic",
-      title: buildDraftTitle(draft),
+      title: buildDraftTitle({ ...draft, availableTeams }),
       updatedAt: timestamp,
       createdAt: timestamp,
       payload: draft,
@@ -481,25 +433,12 @@ export default function Tools() {
         <h1 className={styles.title}>Match-Up Graphic Generator</h1>
         {!remoteRostersPayload?.teams ? (
           <p className={styles.statusNote}>
-            {league === "gleague"
-              ? "Live G League rosters will appear here once the `gleague-rosters` Supabase function is deployed."
-              : "Live NBA rosters will appear here once the `nba-rosters` Supabase function is deployed. Until then, this page falls back to the bundled roster snapshot."}
+            Live WNBA rosters will appear here once the `wnba-rosters` Supabase function is deployed.
           </p>
         ) : null}
       </section>
 
       <section className={styles.workspace}>
-        <label className={`${styles.field} ${styles.leagueField}`}>
-          <select
-            className={styles.select}
-            value={league}
-            onChange={(event) => handleLeagueChange(event.target.value)}
-          >
-            <option value="nba">NBA</option>
-            <option value="gleague">G League</option>
-          </select>
-        </label>
-
         <div className={styles.toolGrid}>
           <ToolColumn
             columnId="left"

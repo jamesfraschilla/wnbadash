@@ -602,6 +602,30 @@ export async function fetchGamesByDate(dateStr) {
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
 }
 
+export async function fetchWnbaTeams() {
+  const payload = await requestJson(WNBA_SCHEDULE_URL);
+  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
+    ? payload.leagueSchedule.gameDates
+    : [];
+  const teams = new Map();
+
+  gameDates.forEach((entry) => {
+    arrayValue(entry?.games).forEach((game) => {
+      [game?.awayTeam, game?.homeTeam].forEach((team) => {
+        const normalized = normalizeTeam(team);
+        if (!normalized.teamId || !normalized.teamName) return;
+        teams.set(normalized.teamId, {
+          teamId: normalized.teamId,
+          tricode: normalized.teamTricode,
+          fullName: `${normalized.teamCity} ${normalized.teamName}`.trim(),
+        });
+      });
+    });
+  });
+
+  return [...teams.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
 export async function fetchGame(gameId, segment = null) {
   const normalizedGameId = padGameId(gameId);
   const isWnbaGame = normalizedGameId.startsWith("10");
@@ -706,6 +730,13 @@ export async function fetchCurrentGLeagueRosters() {
     throw new Error("Supabase functions are not configured.");
   }
   return requestJson(`${SUPABASE_FUNCTIONS_BASE}/gleague-rosters`);
+}
+
+export async function fetchCurrentWnbaRosters() {
+  if (!SUPABASE_FUNCTIONS_BASE) {
+    throw new Error("Supabase functions are not configured.");
+  }
+  return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-rosters`);
 }
 
 export function nbaEventVideoUrl({ gameId, actionNumber, seasonYear, title }) {

@@ -159,6 +159,7 @@ export default function UserContent() {
       }
     });
     return {
+      wnba: [...map.values()].filter((option) => option.league === "wnba").sort((a, b) => a.label.localeCompare(b.label)),
       nba: [...map.values()].filter((option) => option.league === "nba").sort((a, b) => a.label.localeCompare(b.label)),
       gleague: [...map.values()].filter((option) => option.league === "gleague").sort((a, b) => a.label.localeCompare(b.label)),
     };
@@ -331,6 +332,13 @@ export default function UserContent() {
             <span>Opponent</span>
             <select value={opponentFilter} onChange={(event) => setOpponentFilter(event.target.value)}>
               <option value="all">All Opponents</option>
+              {opponentOptions.wnba.length ? (
+                <optgroup label="WNBA">
+                  {opponentOptions.wnba.map((option) => (
+                    <option key={option.key} value={option.key}>{option.label}</option>
+                  ))}
+                </optgroup>
+              ) : null}
               {opponentOptions.nba.length ? (
                 <optgroup label="NBA">
                   {opponentOptions.nba.map((option) => (

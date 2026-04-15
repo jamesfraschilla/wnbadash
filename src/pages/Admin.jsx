@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createManagedUser, createUserInvite, fetchPendingInvites, fetchVisibleProfiles, updateProfile } from "../accountData.js";
 import { ACCOUNT_FEATURE_FLAGS, ACCOUNT_ROLES, ACCOUNT_TEAM_SCOPES } from "../authConfig.js";
 import { useAuth } from "../auth/useAuth.js";
-import { fetchCurrentGLeagueRosters, fetchCurrentNbaRosters } from "../api.js";
-import { GLEAGUE_TEAMS, NBA_TEAMS } from "../data/nbaTeams.js";
+import { fetchCurrentWnbaRosters, fetchWnbaTeams } from "../api.js";
 import {
   deleteMatchupProfile,
   listMatchupProfiles,
@@ -34,7 +33,7 @@ function formatTimestamp(value) {
 function buildEmptyMatchupProfileDraft() {
   return {
     personId: "",
-    league: "nba",
+    league: "wnba",
     teamId: "",
     fullName: "",
     heightIn: "",
@@ -328,6 +327,7 @@ function TeamRosterCard({ teamScope, title }) {
 }
 
 function MatchupProfileCard({
+  availableTeams,
   rosterSources,
   savedProfiles,
   onSave,
@@ -340,15 +340,11 @@ function MatchupProfileCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [savedTeamFilter, setSavedTeamFilter] = useState("all");
 
-  const leagueTeams = draft.league === "gleague" ? GLEAGUE_TEAMS : NBA_TEAMS;
-  const rosterMap = draft.league === "gleague" ? rosterSources.gleague : rosterSources.nba;
-  const nbaTeamNameById = useMemo(
-    () => Object.fromEntries(NBA_TEAMS.map((team) => [String(team.teamId), team.fullName])),
-    []
-  );
-  const gLeagueTeamNameById = useMemo(
-    () => Object.fromEntries(GLEAGUE_TEAMS.map((team) => [String(team.teamId), team.fullName])),
-    []
+  const leagueTeams = availableTeams;
+  const rosterMap = rosterSources.wnba;
+  const teamNameById = useMemo(
+    () => Object.fromEntries(availableTeams.map((team) => [String(team.teamId), team.fullName])),
+    [availableTeams]
   );
 
   const teamPlayers = useMemo(() => {
@@ -384,42 +380,30 @@ function MatchupProfileCard({
     const seen = new Set();
     return savedProfiles
       .map((profile) => {
-        const league = profile.league === "gleague" ? "gleague" : "nba";
         const teamId = String(profile.teamId || "").trim();
         if (!teamId) return null;
-        const key = `${league}:${teamId}`;
+        const key = `wnba:${teamId}`;
         if (seen.has(key)) return null;
         seen.add(key);
-        const teamName = league === "gleague"
-          ? (gLeagueTeamNameById[teamId] || teamId)
-          : (nbaTeamNameById[teamId] || teamId);
+        const teamName = teamNameById[teamId] || teamId;
         return {
           key,
-          league,
+          league: "wnba",
           teamId,
-          label: `${league === "gleague" ? "G League" : "NBA"} · ${teamName}`,
+          label: `WNBA · ${teamName}`,
         };
       })
       .filter(Boolean)
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [gLeagueTeamNameById, nbaTeamNameById, savedProfiles]);
+  }, [savedProfiles, teamNameById]);
 
   const filteredSavedProfiles = useMemo(() => {
     if (savedTeamFilter === "all") return savedProfiles;
-    return savedProfiles.filter((profile) => `${profile.league === "gleague" ? "gleague" : "nba"}:${profile.teamId}` === savedTeamFilter);
+    return savedProfiles.filter((profile) => `wnba:${profile.teamId}` === savedTeamFilter);
   }, [savedProfiles, savedTeamFilter]);
 
   const handleDraftChange = (field, value) => {
     setDraft((current) => ({ ...current, [field]: value }));
-  };
-
-  const handleLeagueChange = (value) => {
-    setDraft({
-      ...buildEmptyMatchupProfileDraft(),
-      league: value === "gleague" ? "gleague" : "nba",
-    });
-    setUseHeightOverride(false);
-    setSaveMessage("");
   };
 
   const handleTeamChange = (teamId) => {
@@ -474,7 +458,7 @@ function MatchupProfileCard({
   };
 
   const handleEdit = (profile) => {
-    const rosterPlayer = (rosterSources?.[profile.league] || {});
+      const rosterPlayer = (rosterSources?.wnba || {});
     const selectedHeight = Array.isArray(rosterPlayer?.[profile.teamId])
       ? (rosterPlayer[profile.teamId].find((player) => player.personId === profile.personId)?.heightIn ?? "")
       : "";
@@ -552,10 +536,7 @@ function MatchupProfileCard({
       <div className={styles.formGrid}>
         <label className={styles.field}>
           <span>League</span>
-          <select value={draft.league} onChange={(event) => handleLeagueChange(event.target.value)}>
-            <option value="nba">NBA</option>
-            <option value="gleague">G League</option>
-          </select>
+          <input type="text" value="WNBA" readOnly />
         </label>
         <label className={styles.field}>
           <span>Team</span>
@@ -705,7 +686,7 @@ function MatchupProfileCard({
             <div>
               <div className={styles.profileName}>{profile.fullName || profile.personId}</div>
               <div className={styles.inviteMeta}>
-                {[profile.league === "gleague" ? "G League" : "NBA", profile.archetype || "auto", profile.defenderRole || "auto", profile.offensiveRole || "auto"]
+                {["WNBA", profile.archetype || "auto", profile.defenderRole || "auto", profile.offensiveRole || "auto"]
                   .filter(Boolean)
                   .join(" · ")}
               </div>
@@ -747,17 +728,16 @@ export default function Admin() {
     enabled: Boolean(user?.id),
   });
 
-  const { data: remoteNbaRostersPayload } = useQuery({
-    queryKey: ["admin-current-nba-rosters"],
-    queryFn: fetchCurrentNbaRosters,
+  const { data: availableTeams = [] } = useQuery({
+    queryKey: ["admin-wnba-teams"],
+    queryFn: fetchWnbaTeams,
     staleTime: 6 * 60 * 60 * 1000,
-    retry: 1,
     enabled: Boolean(user?.id),
   });
 
-  const { data: remoteGLeagueRostersPayload } = useQuery({
-    queryKey: ["admin-current-gleague-rosters"],
-    queryFn: fetchCurrentGLeagueRosters,
+  const { data: remoteWnbaRostersPayload } = useQuery({
+    queryKey: ["admin-current-wnba-rosters"],
+    queryFn: fetchCurrentWnbaRosters,
     staleTime: 6 * 60 * 60 * 1000,
     retry: 1,
     enabled: Boolean(user?.id),
@@ -790,11 +770,11 @@ export default function Admin() {
     },
   });
 
-  const nbaRosterSources = useMemo(() => {
-    const remoteTeams = remoteNbaRostersPayload?.teams && typeof remoteNbaRostersPayload.teams === "object"
-      ? remoteNbaRostersPayload.teams
+  const wnbaRosterSources = useMemo(() => {
+    const remoteTeams = remoteWnbaRostersPayload?.teams && typeof remoteWnbaRostersPayload.teams === "object"
+      ? remoteWnbaRostersPayload.teams
       : {};
-    return NBA_TEAMS.reduce((accumulator, team) => {
+    return availableTeams.reduce((accumulator, team) => {
       const players = Array.isArray(remoteTeams?.[team.teamId]?.players) ? remoteTeams[team.teamId].players : [];
       accumulator[team.teamId] = players.map((player) => ({
         personId: String(player?.personId || "").trim(),
@@ -806,30 +786,11 @@ export default function Admin() {
       })).filter((player) => player.personId && player.fullName);
       return accumulator;
     }, {});
-  }, [remoteNbaRostersPayload]);
-
-  const gLeagueRosterSources = useMemo(() => {
-    const remoteTeams = remoteGLeagueRostersPayload?.teams && typeof remoteGLeagueRostersPayload.teams === "object"
-      ? remoteGLeagueRostersPayload.teams
-      : {};
-    return GLEAGUE_TEAMS.reduce((accumulator, team) => {
-      const players = Array.isArray(remoteTeams?.[team.teamId]?.players) ? remoteTeams[team.teamId].players : [];
-      accumulator[team.teamId] = players.map((player) => ({
-        personId: String(player?.personId || "").trim(),
-        fullName: String(player?.fullName || "").trim(),
-        jerseyNum: String(player?.jerseyNum || "").trim(),
-        teamId: String(player?.teamId || team.teamId).trim() || team.teamId,
-        teamName: team.fullName,
-        heightIn: parseHeightToInches(player?.height),
-      })).filter((player) => player.personId && player.fullName);
-      return accumulator;
-    }, {});
-  }, [remoteGLeagueRostersPayload]);
+  }, [availableTeams, remoteWnbaRostersPayload]);
 
   const rosterSources = useMemo(() => ({
-    nba: nbaRosterSources,
-    gleague: gLeagueRosterSources,
-  }), [gLeagueRosterSources, nbaRosterSources]);
+    wnba: wnbaRosterSources,
+  }), [wnbaRosterSources]);
 
   const sortedInvites = useMemo(() => invites, [invites]);
   const activeSectionConfig = ADMIN_SECTIONS.find((section) => section.key === activeSection) || ADMIN_SECTIONS[0];
@@ -1069,6 +1030,7 @@ export default function Admin() {
         {activeSection === "matchups" ? (
           <div className={styles.section}>
             <MatchupProfileCard
+              availableTeams={availableTeams}
               rosterSources={rosterSources}
               savedProfiles={savedMatchupProfiles.map((profile) => normalizeMatchupProfileRecord(profile)).filter(Boolean)}
               onSave={(record) => saveMatchupProfileMutation.mutateAsync(record)}

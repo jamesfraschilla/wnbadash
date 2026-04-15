@@ -7,5 +7,8 @@ verify_jwt = false
 [functions.gleague-rosters]
 verify_jwt = false
 
+[functions.wnba-rosters]
+verify_jwt = false
+
 [functions.export-image]
 verify_jwt = false
