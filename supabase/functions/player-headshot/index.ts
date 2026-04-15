@@ -5,6 +5,7 @@ const corsHeaders = {
 };
 
 const GLEAGUE_PLAYER_BASE = "https://gleague.nba.com/player";
+const WNBA_PLAYER_BASE = "https://www.wnba.com/player";
 
 function responseWithHeaders(status: number, body: BodyInit | null, extraHeaders: HeadersInit = {}) {
   return new Response(body, {
@@ -35,7 +36,7 @@ function normalizeImageUrl(rawUrl: string) {
   const value = decodeEntities(rawUrl).trim();
   if (!value) return null;
   if (value.startsWith("//")) return `https:${value}`;
-  if (value.startsWith("/")) return new URL(value, "https://gleague.nba.com").toString();
+  if (value.startsWith("/")) return new URL(value, "https://www.wnba.com").toString();
   if (/^https?:\/\//i.test(value)) return value;
   return null;
 }
@@ -74,6 +75,21 @@ function extractJsonImage(html: string) {
   return null;
 }
 
+function extractSchemaImageContentUrl(html: string) {
+  const patterns = [
+    /"contentUrl"\s*:\s*"([^"]+)"/i,
+    /"contentUrl"\s*:\s*\[\s*"([^"]+)"/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = pattern.exec(html);
+    const imageUrl = normalizeImageUrl(match?.[1] || "");
+    if (imageUrl) return imageUrl;
+  }
+
+  return null;
+}
+
 function isLikelyPlayerImage(url: string, personId: string) {
   const value = String(url || "").toLowerCase();
   const safePersonId = String(personId || "").trim();
@@ -91,7 +107,23 @@ function extractFallbackImage(html: string, personId: string) {
 }
 
 function extractHeadshotUrl(html: string, personId: string) {
-  return extractMetaImage(html) || extractJsonImage(html) || extractFallbackImage(html, personId);
+  return extractSchemaImageContentUrl(html)
+    || extractMetaImage(html)
+    || extractJsonImage(html)
+    || extractFallbackImage(html, personId);
+}
+
+function normalizeLeague(value: string) {
+  const safeValue = String(value || "").trim().toLowerCase();
+  if (safeValue === "wnba") return "wnba";
+  return "gleague";
+}
+
+function buildProfileUrl(personId: string, league: "gleague" | "wnba") {
+  if (league === "wnba") {
+    return `${WNBA_PLAYER_BASE}/${encodeURIComponent(personId)}`;
+  }
+  return `${GLEAGUE_PLAYER_BASE}/${encodeURIComponent(personId)}/`;
 }
 
 Deno.serve(async (req) => {
@@ -105,12 +137,13 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const personId = String(url.searchParams.get("personId") || "").trim();
+  const league = normalizeLeague(url.searchParams.get("league") || "");
 
   if (!personId) {
     return jsonResponse(400, { error: "Missing personId" });
   }
 
-  const profileUrl = `${GLEAGUE_PLAYER_BASE}/${encodeURIComponent(personId)}/`;
+  const profileUrl = buildProfileUrl(personId, league);
 
   try {
     const response = await fetch(profileUrl, {
@@ -123,6 +156,7 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       return jsonResponse(404, {
         error: `Profile fetch failed (${response.status})`,
+        league,
         source: profileUrl,
       });
     }
@@ -133,6 +167,7 @@ Deno.serve(async (req) => {
     if (!imageUrl) {
       return jsonResponse(404, {
         error: "No headshot found on profile page",
+        league,
         source: profileUrl,
       });
     }
@@ -145,6 +180,7 @@ Deno.serve(async (req) => {
     return jsonResponse(502, {
       error: "Unable to resolve player headshot",
       detail: error instanceof Error ? error.message : "unknown",
+      league,
       source: profileUrl,
     });
   }

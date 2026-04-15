@@ -777,6 +777,9 @@ export function playerHeadshotUrls(personId, teamId = null) {
     ]
     : league === "wnba"
       ? [
+        SUPABASE_FUNCTIONS_BASE
+          ? `${SUPABASE_FUNCTIONS_BASE}/player-headshot?league=wnba&personId=${encodeURIComponent(safePersonId)}`
+          : null,
         `https://cdn.wnba.com/headshots/wnba/latest/260x190/${safePersonId}.png`,
         `https://cdn.wnba.com/headshots/wnba/latest/1040x760/${safePersonId}.png`,
       ]
