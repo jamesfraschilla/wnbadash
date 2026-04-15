@@ -117,6 +117,13 @@ function buildProxyUrl(url) {
   return `${SUPABASE_FUNCTIONS_BASE}/export-image?url=${encodeURIComponent(safeUrl)}`;
 }
 
+function clipDiagnosticUrl(url) {
+  const safeUrl = String(url || "").trim();
+  if (!safeUrl) return "";
+  if (safeUrl.length <= 160) return safeUrl;
+  return `${safeUrl.slice(0, 157)}...`;
+}
+
 function decodeImageFromObjectUrl(blob, url) {
   return new Promise((resolve) => {
     const objectUrl = URL.createObjectURL(blob);
@@ -156,31 +163,80 @@ function decodeImageFromDataUrl(blob, url) {
   });
 }
 
-function loadImage(url) {
+function loadImage(url, onStage = null) {
   if (!url) return Promise.resolve(null);
   if (loadedImageCache.has(url)) return loadedImageCache.get(url);
 
   const promise = fetch(url, { mode: "cors" })
     .then((response) => {
+      onStage?.({
+        stage: "fetch",
+        ok: response.ok,
+        status: response.status,
+        contentType: response.headers.get("content-type") || "",
+      });
       if (!response.ok) {
         throw new Error(`Image request failed: ${response.status}`);
       }
       return response.blob();
     })
     .then(async (blob) => {
+      onStage?.({
+        stage: "blob",
+        ok: true,
+        contentType: blob.type || "",
+        size: blob.size,
+      });
       if (typeof createImageBitmap === "function") {
         try {
-          return await createImageBitmap(blob);
+          const bitmap = await createImageBitmap(blob);
+          onStage?.({
+            stage: "bitmap",
+            ok: true,
+            width: bitmap.width,
+            height: bitmap.height,
+          });
+          return bitmap;
         } catch {
+          onStage?.({
+            stage: "bitmap",
+            ok: false,
+          });
           // Fall through to Image() decoding below for browsers with partial support.
         }
       }
 
       const objectUrlImage = await decodeImageFromObjectUrl(blob, url);
-      if (objectUrlImage) return objectUrlImage;
-      return decodeImageFromDataUrl(blob, url);
+      if (objectUrlImage) {
+        onStage?.({
+          stage: "object_url",
+          ok: true,
+          width: objectUrlImage.width || objectUrlImage.naturalWidth || 0,
+          height: objectUrlImage.height || objectUrlImage.naturalHeight || 0,
+        });
+        return objectUrlImage;
+      }
+
+      onStage?.({
+        stage: "object_url",
+        ok: false,
+      });
+
+      const dataUrlImage = await decodeImageFromDataUrl(blob, url);
+      onStage?.({
+        stage: "data_url",
+        ok: Boolean(dataUrlImage),
+        width: dataUrlImage ? (dataUrlImage.width || dataUrlImage.naturalWidth || 0) : 0,
+        height: dataUrlImage ? (dataUrlImage.height || dataUrlImage.naturalHeight || 0) : 0,
+      });
+      return dataUrlImage;
     })
-    .catch(() => {
+    .catch((error) => {
+      onStage?.({
+        stage: "error",
+        ok: false,
+        message: error instanceof Error ? error.message : String(error || "unknown"),
+      });
       loadedImageCache.delete(url);
       return null;
     });
@@ -189,10 +245,23 @@ function loadImage(url) {
   return promise;
 }
 
-async function loadFirstImage(urls) {
+async function loadFirstImage(urls, diagnostic = null) {
   for (const url of urls) {
-    const image = await loadImage(buildProxyUrl(url));
-    if (image) return image;
+    const proxiedUrl = buildProxyUrl(url);
+    const attempt = {
+      sourceUrl: clipDiagnosticUrl(url),
+      proxiedUrl: clipDiagnosticUrl(proxiedUrl),
+      stages: [],
+      success: false,
+    };
+    diagnostic?.attempts?.push(attempt);
+    const image = await loadImage(proxiedUrl, (stage) => {
+      attempt.stages.push(stage);
+    });
+    if (image) {
+      attempt.success = true;
+      return image;
+    }
   }
   return null;
 }
@@ -381,10 +450,32 @@ export async function exportMatchupGraphic({ league = "nba", leftPlayers, rightP
     await document.fonts.ready;
   }
 
+  const diagnostics = {
+    leftPlayers: [],
+    rightPlayers: [],
+    logo: null,
+  };
+
+  const buildPlayerDiagnostic = (player) => ({
+    label: getPlayerExportLabel(player),
+    personId: String(player?.personId || "").trim(),
+    teamId: String(player?.teamId || "").trim(),
+    attempts: [],
+  });
+
+  const leftPlayerDiagnostics = (leftPlayers || []).map((player) => buildPlayerDiagnostic(player));
+  const rightPlayerDiagnostics = (rightPlayers || []).map((player) => buildPlayerDiagnostic(player));
+  diagnostics.leftPlayers = leftPlayerDiagnostics;
+  diagnostics.rightPlayers = rightPlayerDiagnostics;
+  diagnostics.logo = {
+    teamId: String(logoTeamId || "").trim(),
+    attempts: [],
+  };
+
   const [leftImages, rightImages, logoImage] = await Promise.all([
-    Promise.all((leftPlayers || []).map((player) => loadFirstImage(buildPlayerHeadshotCandidates(player)))),
-    Promise.all((rightPlayers || []).map((player) => loadFirstImage(buildPlayerHeadshotCandidates(player)))),
-    loadImage(logoTeamId ? buildProxyUrl(teamLogoUrl(logoTeamId, league)) : null),
+    Promise.all((leftPlayers || []).map((player, index) => loadFirstImage(buildPlayerHeadshotCandidates(player), leftPlayerDiagnostics[index]))),
+    Promise.all((rightPlayers || []).map((player, index) => loadFirstImage(buildPlayerHeadshotCandidates(player), rightPlayerDiagnostics[index]))),
+    loadFirstImage(logoTeamId ? [teamLogoUrl(logoTeamId, league)] : [], diagnostics.logo),
   ]);
 
   const { canvas, context } = makeCanvas(EXPORT_WIDTH, EXPORT_HEIGHT, NAVY);
@@ -403,4 +494,5 @@ export async function exportMatchupGraphic({ league = "nba", leftPlayers, rightP
   });
 
   downloadCanvas(canvas, buildFileName({ leftTeam, rightTeam }));
+  return diagnostics;
 }

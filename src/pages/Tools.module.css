@@ -156,6 +156,108 @@
   color: var(--muted);
 }
 
+.diagnosticsPanel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 78%, var(--panel));
+}
+
+.diagnosticsTitle {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.diagnosticsText {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.diagnosticsGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.diagnosticsGroupTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.diagnosticEntry {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.diagnosticHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  font-weight: 700;
+}
+
+.diagnosticMeta {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.diagnosticAttempt {
+  display: grid;
+  gap: 6px;
+}
+
+.diagnosticUrl {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.79rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.diagnosticStageRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.stageOk,
+.stageFail {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+
+.stageOk {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  border: 1px solid rgba(34, 197, 94, 0.28);
+}
+
+.stageFail {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.diagnosticEmpty {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 @media (max-width: 900px) {
   .toolGrid {
     grid-template-columns: 1fr;

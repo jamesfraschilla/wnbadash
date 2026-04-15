@@ -182,6 +182,39 @@ function ToolColumn({
   );
 }
 
+function DiagnosticEntry({ entry }) {
+  const attempts = Array.isArray(entry?.attempts) ? entry.attempts : [];
+  return (
+    <div className={styles.diagnosticEntry}>
+      <div className={styles.diagnosticHeader}>
+        <span>{entry?.label || entry?.teamId || "Asset"}</span>
+        {entry?.personId ? <span className={styles.diagnosticMeta}>ID {entry.personId}</span> : null}
+      </div>
+      {attempts.length ? attempts.map((attempt, index) => (
+        <div key={`${attempt.sourceUrl || attempt.proxiedUrl}-${index}`} className={styles.diagnosticAttempt}>
+          <div className={styles.diagnosticUrl}>{attempt.sourceUrl || attempt.proxiedUrl || "No URL"}</div>
+          <div className={styles.diagnosticStageRow}>
+            {attempt.stages.map((stage, stageIndex) => (
+              <span
+                key={`${attempt.sourceUrl || attempt.proxiedUrl}-${stage.stage}-${stageIndex}`}
+                className={stage.ok ? styles.stageOk : styles.stageFail}
+              >
+                {stage.stage}
+                {stage.status ? ` ${stage.status}` : ""}
+                {stage.contentType ? ` ${stage.contentType}` : ""}
+                {stage.width && stage.height ? ` ${stage.width}x${stage.height}` : ""}
+                {stage.message ? ` ${stage.message}` : ""}
+              </span>
+            ))}
+          </div>
+        </div>
+      )) : (
+        <div className={styles.diagnosticEmpty}>No attempts recorded.</div>
+      )}
+    </div>
+  );
+}
+
 export default function Tools() {
   const { accountsEnabled, user, profile, hasFeature } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -190,6 +223,7 @@ export default function Tools() {
   const [recordId, setRecordId] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
   const [busyAction, setBusyAction] = useState("");
+  const [exportDiagnostics, setExportDiagnostics] = useState(null);
 
   const canUseTools = hasFeature("tools");
   const draftParam = String(params.get("draft") || "").trim();
@@ -425,8 +459,9 @@ export default function Tools() {
     if (!exportReady || busyAction) return;
     setBusyAction("export");
     setSaveStatus("Rendering export...");
+    setExportDiagnostics(null);
     try {
-      await exportMatchupGraphic({
+      const diagnostics = await exportMatchupGraphic({
         league,
         leftPlayers: selectedLeftPlayers,
         rightPlayers: selectedRightPlayers,
@@ -434,6 +469,7 @@ export default function Tools() {
         leftTeam,
         rightTeam,
       });
+      setExportDiagnostics(diagnostics);
       const nextPayload = {
         ...draft,
         leftTeamLabel: leftTeam?.fullName || "",
@@ -534,6 +570,34 @@ export default function Tools() {
         </div>
 
         {saveStatus ? <div className={styles.statusNote}>{saveStatus}</div> : null}
+
+        {exportDiagnostics ? (
+          <section className={styles.diagnosticsPanel}>
+            <h2 className={styles.diagnosticsTitle}>Export Diagnostics</h2>
+            <p className={styles.diagnosticsText}>
+              This shows the exact image URLs and decode stages used by the exporter in your browser.
+            </p>
+
+            <div className={styles.diagnosticsGroup}>
+              <div className={styles.diagnosticsGroupTitle}>Left Players</div>
+              {exportDiagnostics.leftPlayers.map((entry) => (
+                <DiagnosticEntry key={`left-${entry.personId}-${entry.label}`} entry={entry} />
+              ))}
+            </div>
+
+            <div className={styles.diagnosticsGroup}>
+              <div className={styles.diagnosticsGroupTitle}>Right Players</div>
+              {exportDiagnostics.rightPlayers.map((entry) => (
+                <DiagnosticEntry key={`right-${entry.personId}-${entry.label}`} entry={entry} />
+              ))}
+            </div>
+
+            <div className={styles.diagnosticsGroup}>
+              <div className={styles.diagnosticsGroupTitle}>Logo</div>
+              <DiagnosticEntry entry={exportDiagnostics.logo} />
+            </div>
+          </section>
+        ) : null}
       </section>
     </div>
   );
