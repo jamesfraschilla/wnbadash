@@ -107,10 +107,8 @@ function getPlayerExportLabel(player) {
 function buildPlayerHeadshotCandidates(player) {
   const personId = String(player?.personId || "").trim();
   if (!personId) return [];
-  return [
-    `https://cdn.nba.com/headshots/nba/latest/1040x760/${personId}.png`,
-    ...playerHeadshotUrls(personId, player?.teamId),
-  ].filter((url, index, urls) => url && urls.indexOf(url) === index);
+  return playerHeadshotUrls(personId, player?.teamId)
+    .filter((url, index, urls) => url && urls.indexOf(url) === index);
 }
 
 function buildProxyUrl(url) {
@@ -128,7 +126,10 @@ function loadImage(url) {
     image.crossOrigin = "anonymous";
     image.decoding = "async";
     image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
+    image.onerror = () => {
+      loadedImageCache.delete(url);
+      resolve(null);
+    };
     image.src = url;
   });
 
