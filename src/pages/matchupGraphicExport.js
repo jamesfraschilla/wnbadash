@@ -128,7 +128,16 @@ function loadImage(url) {
       }
       return response.blob();
     })
-    .then((blob) => new Promise((resolve) => {
+    .then(async (blob) => {
+      if (typeof createImageBitmap === "function") {
+        try {
+          return await createImageBitmap(blob);
+        } catch {
+          // Fall through to Image() decoding below for browsers with partial support.
+        }
+      }
+
+      return new Promise((resolve) => {
       const objectUrl = URL.createObjectURL(blob);
       const image = new Image();
       image.decoding = "async";
@@ -142,7 +151,8 @@ function loadImage(url) {
         resolve(null);
       };
       image.src = objectUrl;
-    }))
+      });
+    })
     .catch(() => {
       loadedImageCache.delete(url);
       return null;
