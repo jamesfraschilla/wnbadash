@@ -4,6 +4,7 @@ const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
 const WNBA_LIVE_BOXSCORE_BASE = "https://cdn.wnba.com/static/json/liveData/boxscore";
 const WNBA_LIVE_PLAYBYPLAY_BASE = "https://cdn.wnba.com/static/json/liveData/playbyplay";
+const WNBA_SCHEDULE_CACHE_VERSION = "20260415c";
 const WNBA_ROSTERS_CACHE_VERSION = "20260415f";
 const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   ? `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1`
@@ -19,7 +20,7 @@ async function requestJson(url) {
 
 async function requestWnbaSchedule() {
   if (SUPABASE_FUNCTIONS_BASE) {
-    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule`);
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?v=${encodeURIComponent(WNBA_SCHEDULE_CACHE_VERSION)}`);
   }
   return requestJson(WNBA_SCHEDULE_URL);
 }
