@@ -91,6 +91,12 @@ function normalizeDateOnly(value) {
   const text = String(value || "").trim();
   if (!text) return "";
 
+  const slashDateTimeMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (slashDateTimeMatch) {
+    const [, month, day, year] = slashDateTimeMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
   const direct = new Date(text);
   if (!Number.isNaN(direct.getTime())) {
     return direct.toISOString().slice(0, 10);
