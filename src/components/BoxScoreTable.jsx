@@ -1,3 +1,4 @@
+import { inferLeagueFromTeamId } from "../api.js";
 import { formatMinutes } from "../utils.js";
 import styles from "./BoxScoreTable.module.css";
 
@@ -55,14 +56,14 @@ function playerLine(player) {
   };
 }
 
-function inferLeagueFromTeamId(teamId) {
-  return Number(teamId) >= 1612700000 && Number(teamId) < 1612710000 ? "gleague" : "nba";
-}
-
 function playerPageUrl(player, teamId) {
   if (!player?.personId) return null;
-  if (inferLeagueFromTeamId(teamId) === "gleague") {
+  const league = inferLeagueFromTeamId(teamId);
+  if (league === "gleague") {
     return `https://gleague.nba.com/player/${player.personId}/`;
+  }
+  if (league === "wnba") {
+    return `https://stats.wnba.com/player/${player.personId}/`;
   }
   return `https://www.nba.com/stats/player/${player.personId}`;
 }

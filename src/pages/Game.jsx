@@ -48,6 +48,7 @@ import {
   segmentPeriods,
 } from "../segmentStats.js";
 import { supabase } from "../supabaseClient.js";
+import { isTrackedGame } from "../teamConfig.js";
 import { readLocalStorage, writeLocalStorage } from "../storage.js";
 import styles from "./Game.module.css";
 
@@ -411,20 +412,6 @@ const foulsClass = (fouls, stylesRef) => {
   return stylesRef.pfRed;
 };
 
-const isWashingtonTeam = (team) => {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "WAS" || name.includes("washington") || name.includes("wizards");
-};
-
-const isCapitalCityTeam = (team) => {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "CCG" || name.includes("capital city") || name.includes("go-go") || name.includes("gogo");
-};
-
-const isRotationsTeam = (team) => isWashingtonTeam(team) || isCapitalCityTeam(team);
-
 const parseTeamFoulMarker = (description) => {
   if (!description) return null;
   const text = String(description);
@@ -721,8 +708,7 @@ export default function Game({ variant = "full" }) {
   const { homeTeam, awayTeam, teamStats, boxScore, officials, callsAgainst } = game || {};
   const homeTeamId = homeTeam?.teamId ?? null;
   const awayTeamId = awayTeam?.teamId ?? null;
-  const isWashingtonGame = isWashingtonTeam(homeTeam) || isWashingtonTeam(awayTeam);
-  const isRotationsGame = isRotationsTeam(homeTeam) || isRotationsTeam(awayTeam);
+  const trackedGame = isTrackedGame(game);
   const [publishedOfficialOrder, setPublishedOfficialOrder] = useState(null);
   const timeouts = game?.timeouts;
   const isPregame = game?.gameStatus === 1;
@@ -1818,20 +1804,12 @@ export default function Game({ variant = "full" }) {
               Full Dashboard
             </Link>
           )}
-          {showExtras && isWashingtonGame && (
+          {showExtras && trackedGame && (
             <Link
               className={styles.backButton}
               to={dateParam ? `/g/${gameId}/pregame?d=${dateParam}` : `/g/${gameId}/pregame`}
             >
               Pre-Game
-            </Link>
-          )}
-          {showExtras && isRotationsGame && (
-            <Link
-              className={styles.backButton}
-              to={dateParam ? `/g/${gameId}/rotations?d=${dateParam}` : `/g/${gameId}/rotations`}
-            >
-              Rotations
             </Link>
           )}
         </div>

@@ -44,7 +44,10 @@ export function teamLogoUrl(teamId, league = null) {
 }
 
 export function inferLeagueFromTeamId(teamId) {
-  return Number(teamId) >= 1612700000 && Number(teamId) < 1612710000 ? "gleague" : "nba";
+  const numericTeamId = Number(teamId);
+  if (numericTeamId >= 1612700000 && numericTeamId < 1612710000) return "gleague";
+  if (numericTeamId >= 1611661300 && numericTeamId < 1611661400) return "wnba";
+  return "nba";
 }
 
 export function playerHeadshotUrls(personId, teamId = null) {

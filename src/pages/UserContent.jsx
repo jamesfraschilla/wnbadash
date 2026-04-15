@@ -3,8 +3,9 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteDrawingRecord, deleteNoteRecord, listOwnedDrawings, listOwnedNotes } from "../accountData.js";
 import { useAuth } from "../auth/useAuth.js";
-import { fetchGame } from "../api.js";
+import { fetchGame, inferLeagueFromTeamId } from "../api.js";
 import { getLeagueTeam } from "../data/nbaTeams.js";
+import { getOpponentTeamForGame, getTrackedTeamForGame } from "../teamConfig.js";
 import {
   deleteSavedToolRecord,
   deleteSavedToolRecordRemote,
@@ -42,24 +43,6 @@ function getClipUrl(note) {
   return clipUrl ? String(clipUrl) : "";
 }
 
-function isWashingtonTeam(team) {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "WAS" || name.includes("washington") || name.includes("wizards");
-}
-
-function isCapitalCityTeam(team) {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "CCG" || name.includes("capital city") || name.includes("go-go") || name.includes("gogo");
-}
-
-function inferLeagueForTeam(team) {
-  const teamId = Number(team?.teamId);
-  if (teamId >= 1612700000 && teamId < 1612710000) return "gleague";
-  return "nba";
-}
-
 function normalizeDateOnly(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -77,28 +60,12 @@ function buildOpponentLabel(team) {
 }
 
 function buildGameMeta(game) {
-  const away = game?.awayTeam;
-  const home = game?.homeTeam;
-  let trackedTeam = null;
-  let opponentTeam = null;
-
-  if (isWashingtonTeam(away)) {
-    trackedTeam = away;
-    opponentTeam = home;
-  } else if (isWashingtonTeam(home)) {
-    trackedTeam = home;
-    opponentTeam = away;
-  } else if (isCapitalCityTeam(away)) {
-    trackedTeam = away;
-    opponentTeam = home;
-  } else if (isCapitalCityTeam(home)) {
-    trackedTeam = home;
-    opponentTeam = away;
-  }
+  const trackedTeam = getTrackedTeamForGame(game);
+  const opponentTeam = getOpponentTeamForGame(game);
 
   const gameDate = normalizeDateOnly(game?.gameEt || game?.gameTimeUTC || game?.gameDate);
   const opponentLabel = opponentTeam ? buildOpponentLabel(opponentTeam) : "Unknown opponent";
-  const opponentLeague = opponentTeam ? inferLeagueForTeam(opponentTeam) : "nba";
+  const opponentLeague = opponentTeam ? inferLeagueFromTeamId(opponentTeam.teamId) : "nba";
   const trackedLabel = trackedTeam ? buildOpponentLabel(trackedTeam) : "";
   return {
     gameDate,

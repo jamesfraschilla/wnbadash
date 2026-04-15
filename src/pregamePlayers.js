@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient.js";
+import { TRACKED_TEAM, getTrackedTeamScopeForGame, getTrackedTeamScopeForTeam, isTrackedTeam } from "./teamConfig.js";
 import { readLocalStorage, writeLocalStorage } from "./storage.js";
 
 const LEGACY_PLAYERS_STORAGE_KEY = "pregame:players:v1";
@@ -7,27 +8,19 @@ const SHARED_ROSTER_TABLE = "rotations_shared_state";
 const SHARED_ROSTER_SCOPE_TYPE = "shared_roster";
 
 export function isWashingtonTeam(team) {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "WAS" || name.includes("washington") || name.includes("wizards");
+  return isTrackedTeam(team);
 }
 
-export function isCapitalCityTeam(team) {
-  const tricode = String(team?.teamTricode || "").toUpperCase();
-  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-  return tricode === "CCG" || name.includes("capital city") || name.includes("go-go") || name.includes("gogo");
+export function isCapitalCityTeam() {
+  return false;
 }
 
 export function getPregameTeamScope(game) {
-  if (isWashingtonTeam(game?.homeTeam) || isWashingtonTeam(game?.awayTeam)) return "washington";
-  if (isCapitalCityTeam(game?.homeTeam) || isCapitalCityTeam(game?.awayTeam)) return "capital_city";
-  return null;
+  return getTrackedTeamScopeForGame(game);
 }
 
 export function getPregameTeamScopeForTeam(team) {
-  if (isWashingtonTeam(team)) return "washington";
-  if (isCapitalCityTeam(team)) return "capital_city";
-  return null;
+  return getTrackedTeamScopeForTeam(team);
 }
 
 export function normalizePregamePlayerName(value) {
@@ -88,12 +81,8 @@ export function normalizePregamePlayers(rawPlayers) {
 
 export function getTeamBoxScorePlayers(game, teamScope) {
   if (!game || !teamScope) return [];
-  const homeMatches = teamScope === "washington"
-    ? isWashingtonTeam(game.homeTeam)
-    : isCapitalCityTeam(game.homeTeam);
-  const awayMatches = teamScope === "washington"
-    ? isWashingtonTeam(game.awayTeam)
-    : isCapitalCityTeam(game.awayTeam);
+  const homeMatches = teamScope === TRACKED_TEAM.scopeKey && isTrackedTeam(game.homeTeam);
+  const awayMatches = teamScope === TRACKED_TEAM.scopeKey && isTrackedTeam(game.awayTeam);
   if (homeMatches) return Array.isArray(game?.boxScore?.home?.players) ? game.boxScore.home.players : [];
   if (awayMatches) return Array.isArray(game?.boxScore?.away?.players) ? game.boxScore.away.players : [];
   return [];
@@ -173,7 +162,7 @@ function playersStorageKey(teamScope) {
 export function loadPregamePlayersPayload(teamScope) {
   if (typeof window === "undefined" || !teamScope) return null;
   const scopedRaw = readLocalStorage(playersStorageKey(teamScope));
-  const raw = scopedRaw || (teamScope === "washington" ? readLocalStorage(LEGACY_PLAYERS_STORAGE_KEY) : null);
+  const raw = scopedRaw || (teamScope === TRACKED_TEAM.scopeKey ? readLocalStorage(LEGACY_PLAYERS_STORAGE_KEY) : null);
   if (!raw) return null;
   const parsed = safeParseJson(raw, null);
   if (Array.isArray(parsed)) {

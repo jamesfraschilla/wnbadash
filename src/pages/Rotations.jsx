@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchGame } from "../api.js";
+import { fetchGame, teamLogoUrl } from "../api.js";
 import {
   fetchRemotePregamePlayers,
   getTeamBoxScorePlayers,
@@ -39,47 +39,13 @@ const DEFAULT_VERSION_OPTIONS = {
 const DEPTH_OUT_PREFIX = "__OUT__:";
 
 const TEAM_ROTATIONS_CONFIG = {
-  washington: {
-    key: "washington",
-    label: "WASHINGTON",
+  mystics: {
+    key: "mystics",
+    label: "MYSTICS",
     matches(team) {
       const tricode = String(team?.teamTricode || "").toUpperCase();
       const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-      return tricode === "WAS" || name.includes("washington") || name.includes("wizards");
-    },
-    defaultPlayers: [
-      { id: "p1", name: "BUB", cap: 48 },
-      { id: "p2", name: "BC", cap: 48 },
-      { id: "p3", name: "TRE", cap: 48 },
-      { id: "p4", name: "KG", cap: 48 },
-      { id: "p5", name: "JC", cap: 48 },
-      { id: "p6", name: "ALEX", cap: 48 },
-      { id: "p7", name: "TV", cap: 48 },
-      { id: "p8", name: "SC", cap: 48 },
-      { id: "p9", name: "WR", cap: 48 },
-      { id: "p10", name: "JW", cap: 48 },
-      { id: "p11", name: "AG", cap: 48 },
-      { id: "p12", name: "JH", cap: 48 },
-      { id: "p13", name: "JR", cap: 48 },
-      { id: "p14", name: "LB", cap: 48 },
-      { id: "p15", name: "", cap: 48 },
-      { id: "p16", name: "", cap: 48 },
-      { id: "p17", name: "", cap: 48 },
-    ],
-    defaultDepthRows: [
-      ["TRAE", "TRE", "BC", "LB", "JR"],
-      ["SC", "BUB", "JH", "WR", "AG"],
-      ["", "", "", "", ""],
-      ["", "", "", "", ""],
-    ],
-  },
-  capital_city: {
-    key: "capital_city",
-    label: "CAPITAL CITY",
-    matches(team) {
-      const tricode = String(team?.teamTricode || "").toUpperCase();
-      const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
-      return tricode === "CCG" || name.includes("capital city") || name.includes("go-go") || name.includes("gogo");
+      return (tricode === "WAS" && name.includes("mystics")) || (name.includes("washington") && name.includes("mystics"));
     },
     defaultPlayers: Array.from({ length: 17 }, (_, index) => ({
       id: `p${index + 1}`,
@@ -90,7 +56,7 @@ const TEAM_ROTATIONS_CONFIG = {
   },
 };
 
-const DEPTH_ROW_INDICES = TEAM_ROTATIONS_CONFIG.washington.defaultDepthRows.map((_, index) => index);
+const DEPTH_ROW_INDICES = TEAM_ROTATIONS_CONFIG.mystics.defaultDepthRows.map((_, index) => index);
 
 function getRotationsTeamConfig(team) {
   return Object.values(TEAM_ROTATIONS_CONFIG).find((config) => config.matches(team)) || null;
@@ -123,13 +89,13 @@ const createDefaultQuarterLineups = () => ({
   4: MINUTES.map(() => Array.from({ length: POSITION_COLUMNS.length }, () => "")),
 });
 
-const createDefaultPlayers = (teamScope = "washington") => (
-  (TEAM_ROTATIONS_CONFIG[teamScope]?.defaultPlayers || TEAM_ROTATIONS_CONFIG.washington.defaultPlayers)
+const createDefaultPlayers = (teamScope = "mystics") => (
+  (TEAM_ROTATIONS_CONFIG[teamScope]?.defaultPlayers || TEAM_ROTATIONS_CONFIG.mystics.defaultPlayers)
     .map((player) => ({ ...player }))
 );
 
-const createDefaultDepthChart = (teamScope = "washington") => (
-  (TEAM_ROTATIONS_CONFIG[teamScope]?.defaultDepthRows || TEAM_ROTATIONS_CONFIG.washington.defaultDepthRows)
+const createDefaultDepthChart = (teamScope = "mystics") => (
+  (TEAM_ROTATIONS_CONFIG[teamScope]?.defaultDepthRows || TEAM_ROTATIONS_CONFIG.mystics.defaultDepthRows)
     .map((row) => row.slice())
 );
 
@@ -140,7 +106,7 @@ function createVersionState({
   lineups = createDefaultQuarterLineups(),
   inheritDepthTemplate = false,
   options = DEFAULT_VERSION_OPTIONS,
-  teamScope = "washington",
+  teamScope = "mystics",
 }) {
   return {
     id: String(id || (typeof crypto !== "undefined" ? crypto.randomUUID() : `version-${Date.now()}`)),
@@ -152,7 +118,7 @@ function createVersionState({
   };
 }
 
-const createDefaultGameState = (teamScope = "washington") => ({
+const createDefaultGameState = (teamScope = "mystics") => ({
   activeVersionId: FINAL_VERSION_ID,
   versions: [
     createVersionState({
@@ -226,7 +192,7 @@ function normalizePlayerNameInput(value) {
   return String(value || "").toUpperCase();
 }
 
-function normalizePlayers(rawPlayers, teamScope = "washington") {
+function normalizePlayers(rawPlayers, teamScope = "mystics") {
   const normalized = (Array.isArray(rawPlayers) ? rawPlayers : []).slice(0, 17).map((player, index) => ({
     id: String(player?.id || `p${index + 1}`),
     name: normalizePlayerNameInput(player?.name),
@@ -248,7 +214,7 @@ function buildPlayerNameDrafts(players) {
   return Object.fromEntries((players || []).map((player) => [player.id, String(player?.name || "")]));
 }
 
-function normalizeDepthChart(rawDepth, teamScope = "washington") {
+function normalizeDepthChart(rawDepth, teamScope = "mystics") {
   const fallback = createDefaultDepthChart(teamScope);
   if (!Array.isArray(rawDepth)) return fallback;
   return DEPTH_ROW_INDICES.map((rowIndex) => {
@@ -290,7 +256,7 @@ function hasAnyFilledLineups(lineups) {
   ));
 }
 
-function normalizeGameState(rawState, teamScope = "washington") {
+function normalizeGameState(rawState, teamScope = "mystics") {
   if (!rawState || typeof rawState !== "object") return createDefaultGameState(teamScope);
 
   if (Array.isArray(rawState.versions)) {
@@ -351,7 +317,7 @@ function normalizeGameState(rawState, teamScope = "washington") {
   };
 }
 
-function getVersionById(gameState, versionId, teamScope = "washington") {
+function getVersionById(gameState, versionId, teamScope = "mystics") {
   return gameState?.versions?.find((version) => version.id === versionId)
     || gameState?.versions?.[0]
     || createDefaultGameState(teamScope).versions[0];
@@ -466,7 +432,7 @@ function playersStateKey(players) {
   );
 }
 
-function mergePlayersWithPregameRoster(currentPlayers, rosterPlayers, teamScope = "washington") {
+function mergePlayersWithPregameRoster(currentPlayers, rosterPlayers, teamScope = "mystics") {
   const normalizedCurrent = normalizePlayers(currentPlayers, teamScope);
   const normalizedRoster = normalizePregamePlayers(rosterPlayers).map((player) => ({
     id: String(player.id || ""),
@@ -1189,7 +1155,7 @@ function buildRotationsPdfHtml({
         ${quarters.map((quarter) => renderExportQuarterTable(quarter, lineups, hideNamesOnDuplicateRows)).join("")}
         </div>
         <div class="pdf-logo-wrap">
-          <img class="pdf-logo" src="${escapeHtml(logoUrl)}" alt="Washington Wizards" />
+          <img class="pdf-logo" src="${escapeHtml(logoUrl)}" alt="Washington Mystics" />
         </div>
       </div>
     </section>
@@ -1525,7 +1491,7 @@ export default function Rotations() {
   });
 
   const activeVersion = useMemo(
-    () => getVersionById(gameState, gameState.activeVersionId, monitoredTeamScope || "washington"),
+    () => getVersionById(gameState, gameState.activeVersionId, monitoredTeamScope || "mystics"),
     [gameState, monitoredTeamScope]
   );
   const activeVersionId = activeVersion.id;
@@ -1538,13 +1504,13 @@ export default function Rotations() {
     const sourceGameId = Number(depthTemplateSourceGameIdRef.current || 0);
     const currentGameNumeric = Number(gameId || 0);
     if (!sourceGameId || !currentGameNumeric || currentGameNumeric <= sourceGameId) return false;
-    return Boolean(getVersionById(state, FINAL_VERSION_ID, monitoredTeamScope || "washington")?.inheritDepthTemplate);
+    return Boolean(getVersionById(state, FINAL_VERSION_ID, monitoredTeamScope || "mystics")?.inheritDepthTemplate);
   };
 
   const applyInheritedTemplate = (state) => {
     if (!shouldInheritFutureTemplate(state)) return state;
-    const nextDepthChart = normalizeDepthChart(depthTemplate, monitoredTeamScope || "washington");
-    const currentFinalVersion = getVersionById(state, FINAL_VERSION_ID, monitoredTeamScope || "washington");
+    const nextDepthChart = normalizeDepthChart(depthTemplate, monitoredTeamScope || "mystics");
+    const currentFinalVersion = getVersionById(state, FINAL_VERSION_ID, monitoredTeamScope || "mystics");
     if (depthChartStateKey(currentFinalVersion.depthChart) === depthChartStateKey(nextDepthChart)) return state;
     return {
       ...state,
@@ -2108,7 +2074,7 @@ export default function Rotations() {
       const next = normalizePlayers([
         ...current,
         { id: crypto.randomUUID(), name, display, personId, cap: 48 },
-      ], monitoredTeamScope || "washington");
+      ], monitoredTeamScope || "mystics");
       return next;
     });
     setNewPlayerDraft({ name: "", display: "", personId: "" });
@@ -2478,7 +2444,7 @@ export default function Rotations() {
       lineups: mode === "copy" ? lineups : createDefaultQuarterLineups(),
       inheritDepthTemplate: false,
       options: mode === "copy" ? versionDisplayOptions : DEFAULT_VERSION_OPTIONS,
-      teamScope: monitoredTeamScope || "washington",
+      teamScope: monitoredTeamScope || "mystics",
     });
     lineupHistoryRef.current = [];
     setUndoDepth(0);
@@ -2516,7 +2482,7 @@ export default function Rotations() {
     ]);
     const pdfColors = buildPdfColors(rgb);
     const fontUrl = new URL("../assets/fonts/DINalt.ttf", import.meta.url).href;
-    const logoUrl = new URL("../assets/WWizards_Primary_Icon.png", import.meta.url).href;
+    const logoUrl = teamLogoUrl("1611661322", "wnba");
     const [fontResponse, logoResponse] = await Promise.all([
       fetch(fontUrl),
       fetch(logoUrl),
@@ -2679,7 +2645,7 @@ export default function Rotations() {
   const applyRemoteDepthTemplate = (payload) => {
     const remoteUpdatedAt = Number(payload?.updatedAt || 0);
     if (!remoteUpdatedAt || remoteUpdatedAt <= depthTemplateUpdatedAtRef.current) return;
-    const incomingDepth = normalizeDepthChart(payload?.depthChart, monitoredTeamScope || "washington");
+    const incomingDepth = normalizeDepthChart(payload?.depthChart, monitoredTeamScope || "mystics");
     const incomingKey = depthChartStateKey(incomingDepth);
     if (incomingKey === depthTemplateStateKeyRef.current) {
       depthTemplateUpdatedAtRef.current = remoteUpdatedAt;
@@ -2697,7 +2663,7 @@ export default function Rotations() {
   const applyRemoteGameState = (payload) => {
     const remoteUpdatedAt = Number(payload?.updatedAt || 0);
     if (!remoteUpdatedAt || remoteUpdatedAt <= gameUpdatedAtRef.current) return;
-    const incomingState = normalizeGameState(payload?.state, monitoredTeamScope || "washington");
+    const incomingState = normalizeGameState(payload?.state, monitoredTeamScope || "mystics");
     const incomingKey = gameStateKey(incomingState);
     if (incomingKey === gameStateKeyRef.current) {
       gameUpdatedAtRef.current = remoteUpdatedAt;
@@ -2853,7 +2819,7 @@ export default function Rotations() {
         <div className={styles.topRow}>
           <Link className={styles.backButton} to={backUrl}>Back</Link>
         </div>
-        <div className={styles.stateMessage}>Rotations is available only for Washington and Capital City games.</div>
+        <div className={styles.stateMessage}>Rotations is available only for Mystics games.</div>
       </div>
     );
   }

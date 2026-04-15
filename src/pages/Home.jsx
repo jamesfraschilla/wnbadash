@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchGamesByDate, teamLogoUrl } from "../api.js";
+import { fetchGamesByDate, inferLeagueFromTeamId, teamLogoUrl } from "../api.js";
 import { formatDateInput, formatDateLabel, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
 import styles from "./Home.module.css";
 
@@ -18,18 +18,21 @@ export default function Home() {
     queryFn: () => fetchGamesByDate(dateInput),
   });
 
-  const { nbaGames, gLeagueGames } = useMemo(() => {
+  const { nbaGames, wnbaGames, gLeagueGames } = useMemo(() => {
     const nba = [];
+    const wnba = [];
     const gLeague = [];
     games.forEach((game) => {
-      const id = String(game.gameId || "");
-      if (id.startsWith("202")) {
+      const league = inferLeagueFromTeamId(game?.homeTeam?.teamId || game?.awayTeam?.teamId);
+      if (league === "gleague") {
         gLeague.push(game);
+      } else if (league === "wnba") {
+        wnba.push(game);
       } else {
         nba.push(game);
       }
     });
-    return { nbaGames: nba, gLeagueGames: gLeague };
+    return { nbaGames: nba, wnbaGames: wnba, gLeagueGames: gLeague };
   }, [games]);
 
   if (isLoading) {
@@ -40,7 +43,7 @@ export default function Home() {
     return <div className={styles.stateMessage}>Failed to load games.</div>;
   }
 
-  if (!nbaGames.length && !gLeagueGames.length) {
+  if (!nbaGames.length && !wnbaGames.length && !gLeagueGames.length) {
     return <div className={styles.stateMessage}>No games scheduled for this date.</div>;
   }
 
@@ -116,6 +119,12 @@ export default function Home() {
           Next
         </button>
       </div>
+      {wnbaGames.length > 0 && (
+        <>
+          <h2 className={styles.sectionTitle}>WNBA</h2>
+          <div className={styles.gameList}>{renderGames(wnbaGames)}</div>
+        </>
+      )}
       {nbaGames.length > 0 && (
         <>
           <h2 className={styles.sectionTitle}>NBA</h2>

@@ -1061,8 +1061,7 @@ export default function Admin() {
         {activeSection === "rosters" ? (
           <div className={styles.section}>
             <div className={styles.list}>
-              <TeamRosterCard teamScope="washington" title="Washington" />
-              <TeamRosterCard teamScope="capital_city" title="Capital City" />
+              <TeamRosterCard teamScope="mystics" title="Mystics" />
             </div>
           </div>
         ) : null}

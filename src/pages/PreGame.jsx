@@ -2,13 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { fetchGame } from "../api.js";
+import { fetchGame, teamLogoUrl } from "../api.js";
 import {
   fetchRemotePregamePlayers,
   getTeamBoxScorePlayers,
   getPregameTeamScope,
-  isCapitalCityTeam,
-  isWashingtonTeam,
   linkPregamePlayersToApiPlayers,
   loadPregamePlayersPayload,
   normalizePregamePlayerName,
@@ -17,8 +15,8 @@ import {
   saveRemotePregamePlayers,
 } from "../pregamePlayers.js";
 import { supabase } from "../supabaseClient.js";
+import { TRACKED_TEAM, getOpponentTeamForGame, getTrackedTeamForGame } from "../teamConfig.js";
 import { readLocalStorage, writeLocalStorage } from "../storage.js";
-import wizardsLogoUrl from "../assets/WWizards_Primary_Icon.png";
 import dinFontUrl from "../assets/fonts/DIN.ttf";
 import styles from "./PreGame.module.css";
 
@@ -32,20 +30,24 @@ const TEAM_TIME_ZONES = {
   BOS: "America/New_York",
   CHA: "America/New_York",
   CHI: "America/Chicago",
+  CON: "America/New_York",
   CLE: "America/New_York",
   DAL: "America/Chicago",
   DEN: "America/Denver",
   DET: "America/New_York",
+  GSV: "America/Los_Angeles",
   GSW: "America/Los_Angeles",
   HOU: "America/Chicago",
   IND: "America/New_York",
   LAC: "America/Los_Angeles",
   LAL: "America/Los_Angeles",
+  LVA: "America/Los_Angeles",
   MEM: "America/Chicago",
   MIA: "America/New_York",
   MIL: "America/Chicago",
   MIN: "America/Chicago",
   NOP: "America/Chicago",
+  NYL: "America/New_York",
   NYK: "America/New_York",
   OKC: "America/Chicago",
   ORL: "America/New_York",
@@ -54,6 +56,7 @@ const TEAM_TIME_ZONES = {
   POR: "America/Los_Angeles",
   SAC: "America/Los_Angeles",
   SAS: "America/Chicago",
+  SEA: "America/Los_Angeles",
   TOR: "America/Toronto",
   UTA: "America/Denver",
   WAS: "America/New_York",
@@ -582,10 +585,8 @@ function downloadCanvas(canvas, filename) {
 }
 
 function buildHeaderLine(game) {
-  const home = game?.homeTeam;
-  const away = game?.awayTeam;
-  const trackedIsAway = isWashingtonTeam(away) || isCapitalCityTeam(away);
-  const opponent = trackedIsAway ? home : away;
+  const trackedTeam = getTrackedTeamForGame(game);
+  const opponent = getOpponentTeamForGame(game);
   const rawCity = String(opponent?.teamCity || "").trim();
   const rawName = String(opponent?.teamName || "").trim();
   const lowerName = rawName.toLowerCase();
@@ -594,6 +595,7 @@ function buildHeaderLine(game) {
     if (lowerName.includes("clipper")) opponentLabel = "LA CLIPPERS";
     if (lowerName.includes("laker")) opponentLabel = "LA LAKERS";
   }
+  const trackedIsAway = String(trackedTeam?.teamId || "") === String(game?.awayTeam?.teamId || "");
   return trackedIsAway ? `@ ${opponentLabel}` : `vs ${opponentLabel}`;
 }
 
@@ -653,10 +655,8 @@ export default function PreGame() {
     refetchInterval: 10_000,
   });
 
-  const washingtonGame = useMemo(() => (
-    isWashingtonTeam(game?.homeTeam) || isWashingtonTeam(game?.awayTeam)
-  ), [game]);
   const supportedTeamGame = Boolean(trackedTeamScope);
+  const trackedTeam = useMemo(() => getTrackedTeamForGame(game), [game]);
   const trackedApiPlayers = useMemo(
     () => getTeamBoxScorePlayers(game, trackedTeamScope),
     [game, trackedTeamScope]
@@ -891,7 +891,7 @@ export default function PreGame() {
   const handleExport = async (formatKey) => {
     await ensureExportFonts();
     const themeMode = readThemeMode();
-    const logoImage = await loadImage(wizardsLogoUrl);
+    const logoImage = await loadImage(teamLogoUrl(trackedTeam?.teamId || TRACKED_TEAM.teamId, TRACKED_TEAM.league));
 
     const portraitScale = EXPORT_SPECS.portrait.outputWidth / EXPORT_SPECS.portrait.logicalWidth;
     const landscapeScale = EXPORT_SPECS.landscape.outputWidth / EXPORT_SPECS.landscape.logicalWidth;
@@ -945,7 +945,7 @@ export default function PreGame() {
         <div className={styles.topRow}>
           <Link className={styles.backButton} to={backUrl}>Back</Link>
         </div>
-        <div className={styles.stateMessage}>Pre-Game is available only for Washington and Capital City games.</div>
+        <div className={styles.stateMessage}>Pre-Game is available only for Mystics games.</div>
       </div>
     );
   }
