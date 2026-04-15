@@ -79,6 +79,18 @@ function formatHeightLabel(heightIn) {
   return `${feet}'${inches}"`;
 }
 
+function buildAvailableTeamsFromRosterPayload(payload) {
+  const teams = payload?.teams && typeof payload.teams === "object" ? payload.teams : {};
+  return Object.entries(teams)
+    .map(([teamId, team]) => ({
+      teamId: String(team?.teamId || teamId).trim() || String(teamId),
+      tricode: String(team?.teamAbbreviation || team?.tricode || "").trim().toUpperCase(),
+      fullName: `${String(team?.teamCity || "").trim()} ${String(team?.teamName || "").trim()}`.trim(),
+    }))
+    .filter((team) => team.teamId && team.fullName)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
 const ADMIN_SECTIONS = [
   {
     key: "accounts",
@@ -728,7 +740,7 @@ export default function Admin() {
     enabled: Boolean(user?.id),
   });
 
-  const { data: availableTeams = [] } = useQuery({
+  const { data: availableTeamsQuery = [] } = useQuery({
     queryKey: ["admin-wnba-teams"],
     queryFn: fetchWnbaTeams,
     staleTime: 6 * 60 * 60 * 1000,
@@ -742,6 +754,12 @@ export default function Admin() {
     retry: 1,
     enabled: Boolean(user?.id),
   });
+  const availableTeams = useMemo(() => {
+    if (Array.isArray(availableTeamsQuery) && availableTeamsQuery.length) {
+      return availableTeamsQuery;
+    }
+    return buildAvailableTeamsFromRosterPayload(remoteWnbaRostersPayload);
+  }, [availableTeamsQuery, remoteWnbaRostersPayload]);
 
   const { data: savedMatchupProfiles = [] } = useQuery({
     queryKey: ["matchup-player-profiles"],

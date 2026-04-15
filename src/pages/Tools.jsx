@@ -92,6 +92,18 @@ function teamDisplayCode(team) {
     .toUpperCase();
 }
 
+function buildAvailableTeamsFromRosterPayload(payload) {
+  const teams = payload?.teams && typeof payload.teams === "object" ? payload.teams : {};
+  return Object.entries(teams)
+    .map(([teamId, team]) => ({
+      teamId: String(team?.teamId || teamId).trim() || String(teamId),
+      tricode: String(team?.teamAbbreviation || team?.tricode || "").trim().toUpperCase(),
+      fullName: `${String(team?.teamCity || "").trim()} ${String(team?.teamName || "").trim()}`.trim(),
+    }))
+    .filter((team) => team.teamId && team.fullName)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
 function buildDraftTitle(draft) {
   const leftTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.leftTeamId) || null;
   const rightTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.rightTeamId) || null;
@@ -181,7 +193,7 @@ export default function Tools() {
 
   const canUseTools = hasFeature("tools");
   const draftParam = String(params.get("draft") || "").trim();
-  const { data: availableTeams = [] } = useQuery({
+  const { data: availableTeamsQuery = [] } = useQuery({
     queryKey: ["tools-wnba-teams"],
     queryFn: fetchWnbaTeams,
     enabled: canUseTools,
@@ -194,6 +206,12 @@ export default function Tools() {
     staleTime: 6 * 60 * 60 * 1000,
     retry: 1,
   });
+  const availableTeams = useMemo(() => {
+    if (Array.isArray(availableTeamsQuery) && availableTeamsQuery.length) {
+      return availableTeamsQuery;
+    }
+    return buildAvailableTeamsFromRosterPayload(remoteWnbaRostersPayload);
+  }, [availableTeamsQuery, remoteWnbaRostersPayload]);
 
   const wnbaRosterMap = useMemo(() => {
     const remoteTeams = remoteWnbaRostersPayload?.teams && typeof remoteWnbaRostersPayload.teams === "object"
