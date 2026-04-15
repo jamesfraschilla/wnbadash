@@ -4,6 +4,7 @@ const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
 const WNBA_LIVE_BOXSCORE_BASE = "https://cdn.wnba.com/static/json/liveData/boxscore";
 const WNBA_LIVE_PLAYBYPLAY_BASE = "https://cdn.wnba.com/static/json/liveData/playbyplay";
+const WNBA_ROSTERS_CACHE_VERSION = "20260415f";
 const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   ? `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1`
   : "";
@@ -850,7 +851,7 @@ export async function fetchCurrentWnbaRosters() {
   if (!SUPABASE_FUNCTIONS_BASE) {
     throw new Error("Supabase functions are not configured.");
   }
-  const payload = await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-rosters`);
+  const payload = await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-rosters?v=${encodeURIComponent(WNBA_ROSTERS_CACHE_VERSION)}`);
   return withStableWnbaRosterIds(payload);
 }
 
