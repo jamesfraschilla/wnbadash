@@ -4,6 +4,7 @@ import { teamLogoUrl } from "../api.js";
 import { MATCHUP_PLAYER_PROFILES } from "../data/matchupProfiles.js";
 import { buildResolvedMatchupProfileMap, listMatchupProfiles } from "../matchupProfileData.js";
 import rostersByTeamId from "../data/rosters.json";
+import { TRACKED_TEAM } from "../teamConfig.js";
 import PlayerHeadshot from "./PlayerHeadshot.jsx";
 import { readLocalStorage, writeLocalStorage } from "../storage.js";
 import styles from "./MatchUps.module.css";
@@ -19,8 +20,6 @@ const ROW_SLOT_COUNT = 5;
 const DRAG_TARGET_PADDING_PX = 22;
 const PICKER_OPEN_GUARD_MS = 260;
 const PICKER_HOLD_MS_TOUCH = 420;
-const WIZARDS_TEAM_ID = "1610612764";
-const CAPITAL_CITY_TEAM_ID = "1612709928";
 const DRAW_STROKE_COLOR = "#f8fafc";
 const DRAW_STROKE_WIDTH = 3;
 const DRAW_COLORS = ["#f8fafc", "#facc15", "#ef4444", "#38bdf8", "#22c55e"];
@@ -33,8 +32,7 @@ function isGLeagueTeamId(teamId) {
 }
 
 function isPriorityMatchupTeam(teamId) {
-  const normalizedTeamId = String(teamId || "");
-  return normalizedTeamId === WIZARDS_TEAM_ID || normalizedTeamId === CAPITAL_CITY_TEAM_ID;
+  return String(teamId || "").trim() === TRACKED_TEAM.teamId;
 }
 
 function buildEmptyState() {

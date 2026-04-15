@@ -4,7 +4,6 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteDrawingRecord, deleteNoteRecord, listOwnedDrawings, listOwnedNotes } from "../accountData.js";
 import { useAuth } from "../auth/useAuth.js";
 import { fetchGame, inferLeagueFromTeamId } from "../api.js";
-import { getLeagueTeam } from "../data/nbaTeams.js";
 import { getOpponentTeamForGame, getTrackedTeamForGame } from "../teamConfig.js";
 import {
   deleteSavedToolRecord,
@@ -160,8 +159,6 @@ export default function UserContent() {
     });
     return {
       wnba: [...map.values()].filter((option) => option.league === "wnba").sort((a, b) => a.label.localeCompare(b.label)),
-      nba: [...map.values()].filter((option) => option.league === "nba").sort((a, b) => a.label.localeCompare(b.label)),
-      gleague: [...map.values()].filter((option) => option.league === "gleague").sort((a, b) => a.label.localeCompare(b.label)),
     };
   }, [gameMetaById]);
 
@@ -339,20 +336,6 @@ export default function UserContent() {
                   ))}
                 </optgroup>
               ) : null}
-              {opponentOptions.nba.length ? (
-                <optgroup label="NBA">
-                  {opponentOptions.nba.map((option) => (
-                    <option key={option.key} value={option.key}>{option.label}</option>
-                  ))}
-                </optgroup>
-              ) : null}
-              {opponentOptions.gleague.length ? (
-                <optgroup label="G League">
-                  {opponentOptions.gleague.map((option) => (
-                    <option key={option.key} value={option.key}>{option.label}</option>
-                  ))}
-                </optgroup>
-              ) : null}
             </select>
           </label>
           {tab === "notes" && availableTagOptions.length ? (
@@ -516,9 +499,8 @@ export default function UserContent() {
             <div className={styles.list}>
               {savedTools.map((toolRecord) => {
                 const isDeleting = deletingKey === `tool:${toolRecord.id}`;
-                const league = String(toolRecord.payload?.league || "nba").trim() === "gleague" ? "gleague" : "nba";
-                const leftTeam = getLeagueTeam(toolRecord.payload?.leftTeamId, league);
-                const rightTeam = getLeagueTeam(toolRecord.payload?.rightTeamId, league);
+                const leftTeamLabel = String(toolRecord.payload?.leftTeamLabel || toolRecord.payload?.leftTeamName || "").trim();
+                const rightTeamLabel = String(toolRecord.payload?.rightTeamLabel || toolRecord.payload?.rightTeamName || "").trim();
                 return (
                   <article key={toolRecord.id} className={styles.card}>
                     <div className={styles.cardHeader}>
@@ -543,8 +525,8 @@ export default function UserContent() {
                       </div>
                     </div>
                     <div className={styles.cardBody}>
-                      {leftTeam || rightTeam
-                        ? `${leftTeam?.fullName || "Left side empty"} vs ${rightTeam?.fullName || "Right side empty"}`
+                      {leftTeamLabel || rightTeamLabel
+                        ? `${leftTeamLabel || "Left side empty"} vs ${rightTeamLabel || "Right side empty"}`
                         : "Saved match-up graphic."}
                     </div>
                     <div className={styles.cardFooter}>Updated {formatTimestamp(toolRecord.updatedAt)}</div>

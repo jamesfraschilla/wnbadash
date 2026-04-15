@@ -101,7 +101,7 @@ create table if not exists public.user_tool_records (
 
 create table if not exists public.matchup_player_profiles (
   person_id text primary key,
-  league text not null default 'nba' check (league in ('nba', 'gleague')),
+  league text not null default 'wnba' check (league in ('nba', 'gleague', 'wnba')),
   team_id text,
   full_name text,
   height_in integer,

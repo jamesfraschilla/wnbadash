@@ -434,6 +434,12 @@ export default function Tools() {
         leftTeam,
         rightTeam,
       });
+      const nextPayload = {
+        ...draft,
+        leftTeamLabel: leftTeam?.fullName || "",
+        rightTeamLabel: rightTeam?.fullName || "",
+      };
+      setDraft(nextPayload);
       setSaveStatus("Exported match-up PNG.");
     } catch (error) {
       console.error("Failed to export match-up graphic.", error);
