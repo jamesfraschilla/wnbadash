@@ -6,6 +6,7 @@ const corsHeaders = {
 
 const ALLOWED_HOSTS = [
   "cdn.nba.com",
+  "cdn.wnba.com",
   "ak-static.cms.nba.com",
   "gleague.nba.com",
   "official.nba.com",
