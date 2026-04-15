@@ -736,7 +736,7 @@ export function teamLogoUrl(teamId, league = null) {
     return `https://ak-static.cms.nba.com/wp-content/uploads/logos/nbagleague/${teamId}/primary/L/logo.svg`;
   }
   if (inferredLeague === "wnba") {
-    return `https://cdn.wnba.com/logos/wnba/${teamId}/D/logo.svg`;
+    return `https://cdn.wnba.com/logos/wnba/${teamId}/primary/D/logo.svg`;
   }
   return `https://cdn.nba.com/logos/nba/${teamId}/primary/L/logo.svg`;
 }
@@ -775,6 +775,11 @@ export function playerHeadshotUrls(personId, teamId = null) {
       `https://cdn.nba.com/headshots/nba/latest/1040x760/${safePersonId}.png`,
       `https://cdn.nba.com/headshots/nba/latest/260x190/${safePersonId}.png`,
     ]
+    : league === "wnba"
+      ? [
+        `https://cdn.wnba.com/headshots/wnba/latest/260x190/${safePersonId}.png`,
+        `https://cdn.wnba.com/headshots/wnba/latest/1040x760/${safePersonId}.png`,
+      ]
     : [
       `https://cdn.nba.com/headshots/nba/latest/260x190/${safePersonId}.png`,
       `https://cdn.nba.com/headshots/nba/latest/1040x760/${safePersonId}.png`,
