@@ -120,11 +120,43 @@ function formatPlayerOption(player) {
   return `#${player.jerseyNum || "--"} ${player.fullName}`.trim();
 }
 
+function slugifyPlayerText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function parseLegacySyntheticPlayerId(playerId) {
+  const text = String(playerId || "").trim();
+  if (!text.startsWith("wnba-")) return null;
+  const match = /^wnba-(\d+)-(.+)-(\d+)$/.exec(text);
+  if (!match) return null;
+  return {
+    teamId: match[1],
+    slug: match[2],
+    jerseyNum: match[3],
+  };
+}
+
+function resolveLegacySyntheticPlayer(playerId, roster) {
+  const parsed = parseLegacySyntheticPlayerId(playerId);
+  if (!parsed) return null;
+  const normalizedSlug = parsed.slug;
+  const normalizedJersey = String(parsed.jerseyNum || "").trim();
+  return (roster || []).find((player) => {
+    const playerSlug = slugifyPlayerText(player?.fullName || `${player?.firstName || ""} ${player?.familyName || ""}`);
+    const playerJersey = String(player?.jerseyNum || "").trim();
+    return playerSlug === normalizedSlug && playerJersey === normalizedJersey;
+  }) || null;
+}
+
 function resolveSelectedPlayers(playerIds, roster) {
   const playersById = new Map((roster || []).map((player) => [player.personId, player]));
   return [...EMPTY_PLAYER_IDS].map((_, index) => {
     const playerId = String(playerIds?.[index] || "").trim();
-    return playersById.get(playerId) || null;
+    return playersById.get(playerId) || resolveLegacySyntheticPlayer(playerId, roster) || null;
   });
 }
 
