@@ -117,6 +117,45 @@ function buildProxyUrl(url) {
   return `${SUPABASE_FUNCTIONS_BASE}/export-image?url=${encodeURIComponent(safeUrl)}`;
 }
 
+function decodeImageFromObjectUrl(blob, url) {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      loadedImageCache.delete(url);
+      resolve(null);
+    };
+    image.src = objectUrl;
+  });
+}
+
+function decodeImageFromDataUrl(blob, url) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => resolve(image);
+      image.onerror = () => {
+        loadedImageCache.delete(url);
+        resolve(null);
+      };
+      image.src = String(reader.result || "");
+    };
+    reader.onerror = () => {
+      loadedImageCache.delete(url);
+      resolve(null);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
 function loadImage(url) {
   if (!url) return Promise.resolve(null);
   if (loadedImageCache.has(url)) return loadedImageCache.get(url);
@@ -137,21 +176,9 @@ function loadImage(url) {
         }
       }
 
-      return new Promise((resolve) => {
-      const objectUrl = URL.createObjectURL(blob);
-      const image = new Image();
-      image.decoding = "async";
-      image.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve(image);
-      };
-      image.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        loadedImageCache.delete(url);
-        resolve(null);
-      };
-      image.src = objectUrl;
-      });
+      const objectUrlImage = await decodeImageFromObjectUrl(blob, url);
+      if (objectUrlImage) return objectUrlImage;
+      return decodeImageFromDataUrl(blob, url);
     })
     .catch(() => {
       loadedImageCache.delete(url);
