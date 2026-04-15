@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     const upstream = await fetch(target.toString(), {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; NBA Dashboard Export Proxy)",
-        Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        Accept: "image/png,image/svg+xml,image/*,*/*;q=0.8",
       },
       redirect: "follow",
     });
