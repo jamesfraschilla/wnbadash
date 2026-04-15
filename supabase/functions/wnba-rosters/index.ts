@@ -88,20 +88,20 @@ function decodeJsonText(value: string) {
 }
 
 function extractRosterEntries(html: string) {
-  const objectMatches = [...html.matchAll(
-    /playerId\\?":\d+[^]*?playerLink\\?":"(?:\\.|[^"])*/g
-  )];
+  const objectMatches = html
+    .split('playerId\\":')
+    .slice(1)
+    .map((chunk) => `playerId\\":${chunk}`);
 
   const seen = new Set<string>();
   const structuredPlayers = objectMatches
-    .map((match) => {
-      const rawPlayer = match[0] || "";
-      const personId = String(rawPlayer.match(/playerId\\?":("?(\d+)"?)/)?.[2] || "").trim();
-      const fullName = decodeJsonText(rawPlayer.match(/playerName\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
-      const jerseyNum = decodeJsonText(rawPlayer.match(/playerNumber\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
-      const position = decodeJsonText(rawPlayer.match(/position\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
-      const teamId = String(rawPlayer.match(/teamId\\?":"?(\d+)"?/)?.[1] || "").trim();
-      const playerLink = decodeJsonText(rawPlayer.match(/playerLink\\?":"((?:\\.|[^"])*)"/)?.[1] || "");
+    .map((chunk) => {
+      const personId = String(chunk.match(/playerId\\":(\d+)/)?.[1] || "").trim();
+      const fullName = decodeJsonText(chunk.match(/playerName\\":\\"([^"]*)\\"/)?.[1] || "");
+      const jerseyNum = decodeJsonText(chunk.match(/playerNumber\\":\\"([^"]*)\\"/)?.[1] || "");
+      const position = decodeJsonText(chunk.match(/position\\":\\"([^"]*)\\"/)?.[1] || "");
+      const teamId = String(chunk.match(/teamId\\":\\"?(\d+)\\"?/)?.[1] || "").trim();
+      const playerLink = decodeJsonText(chunk.match(/playerLink\\":\\"([^"]*)\\"/)?.[1] || "");
       if (!personId || !fullName || seen.has(personId)) return null;
       seen.add(personId);
       const { firstName, familyName } = splitName(fullName);
