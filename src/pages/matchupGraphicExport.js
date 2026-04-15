@@ -121,17 +121,32 @@ function loadImage(url) {
   if (!url) return Promise.resolve(null);
   if (loadedImageCache.has(url)) return loadedImageCache.get(url);
 
-  const promise = new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => {
+  const promise = fetch(url, { mode: "cors" })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Image request failed: ${response.status}`);
+      }
+      return response.blob();
+    })
+    .then((blob) => new Promise((resolve) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        loadedImageCache.delete(url);
+        resolve(null);
+      };
+      image.src = objectUrl;
+    }))
+    .catch(() => {
       loadedImageCache.delete(url);
-      resolve(null);
-    };
-    image.src = url;
-  });
+      return null;
+    });
 
   loadedImageCache.set(url, promise);
   return promise;
