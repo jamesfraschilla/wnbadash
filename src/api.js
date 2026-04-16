@@ -867,6 +867,37 @@ export async function fetchGame(gameId, segment = null) {
   );
 }
 
+export async function fetchWnbaFeedHealth(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  if (!normalizedGameId.startsWith("10")) {
+    throw new Error("WNBA feed health checks require a WNBA game ID.");
+  }
+
+  const [scheduleResult, liveResult] = await Promise.allSettled([
+    fetchWnbaScheduleGameById(normalizedGameId),
+    requestWnbaLiveGame(normalizedGameId),
+  ]);
+
+  const scheduleGame = scheduleResult.status === "fulfilled" ? scheduleResult.value : null;
+  const livePayload = liveResult.status === "fulfilled" ? liveResult.value : null;
+  const normalizedGame = livePayload
+    ? normalizeWnbaLiveGame(
+      livePayload.boxscore,
+      livePayload.playByPlay || {},
+      livePayload.advancedBoxScore || {}
+    )
+    : null;
+
+  return {
+    gameId: normalizedGameId,
+    scheduleGame,
+    scheduleError: scheduleResult.status === "rejected" ? String(scheduleResult.reason?.message || scheduleResult.reason || "Schedule request failed.") : "",
+    livePayload,
+    liveError: liveResult.status === "rejected" ? String(liveResult.reason?.message || liveResult.reason || "Live request failed.") : "",
+    normalizedGame,
+  };
+}
+
 export async function fetchMinutes(gameId) {
   const normalizedGameId = padGameId(gameId);
   if (!normalizedGameId.startsWith("10")) {

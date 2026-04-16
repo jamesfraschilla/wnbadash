@@ -90,7 +90,8 @@
 .noticeCard,
 .inviteRow,
 .profileCard,
-.rosterCard {
+.rosterCard,
+.feedCard {
   border: 1px solid var(--border);
   background: var(--panel);
   border-radius: 14px;
@@ -237,6 +238,88 @@
   gap: 12px;
 }
 
+.feedCard,
+.feedResults,
+.feedChecks {
+  display: grid;
+  gap: 12px;
+}
+
+.feedHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.feedSummaryGrid,
+.feedMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.feedStatCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.feedStatLabel {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.feedStatValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.feedCheckRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 76px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--bg);
+}
+
+.feedCheckPass {
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.feedCheckWarn {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.feedCheckFail {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.feedCheckLabel,
+.feedCheckStatus {
+  font-weight: 700;
+}
+
+.feedCheckStatus {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.feedCheckDetail {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .rosterHeader {
   display: flex;
   align-items: center;
@@ -297,7 +380,8 @@
 
   .inviteRow,
   .profileHeader,
-  .rosterHeader {
+  .rosterHeader,
+  .feedHeader {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -307,7 +391,8 @@
   }
 
   .rosterGridHeader,
-  .rosterRow {
+  .rosterRow,
+  .feedCheckRow {
     grid-template-columns: 1fr;
   }
 }

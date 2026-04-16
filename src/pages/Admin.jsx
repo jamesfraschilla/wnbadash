@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createManagedUser, createUserInvite, fetchPendingInvites, fetchVisibleProfiles, updateProfile } from "../accountData.js";
 import { ACCOUNT_FEATURE_FLAGS, ACCOUNT_ROLES, ACCOUNT_TEAM_SCOPES } from "../authConfig.js";
 import { useAuth } from "../auth/useAuth.js";
-import { fetchCurrentWnbaRosters, fetchWnbaTeams } from "../api.js";
+import { fetchCurrentWnbaRosters, fetchWnbaFeedHealth, fetchWnbaTeams } from "../api.js";
 import {
   deleteMatchupProfile,
   listMatchupProfiles,
@@ -147,11 +147,281 @@ const ADMIN_SECTIONS = [
     title: "Shared team rosters",
   },
   {
+    key: "feed-health",
+    kicker: "WNBA Data",
+    title: "Feed health check",
+  },
+  {
     key: "matchups",
     kicker: "Match-Ups",
     title: "Smart matchup profiles",
   },
 ];
+
+function buildHealthCheck(label, passed, detail, severity = "pass") {
+  return { label, passed, detail, severity: passed ? "pass" : severity };
+}
+
+function formatHealthValue(value) {
+  if (value == null || value === "") return "Unavailable";
+  if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  return String(value);
+}
+
+function summarizeWnbaFeedHealth(report) {
+  const livePayload = report?.livePayload || {};
+  const scheduleGame = report?.scheduleGame || null;
+  const normalizedGame = report?.normalizedGame || null;
+  const boxscoreGame = livePayload?.boxscore?.game || null;
+  const playByPlayGame = livePayload?.playByPlay?.game || null;
+  const advancedBoxScore = livePayload?.advancedBoxScore || {};
+  const homeTeam = boxscoreGame?.homeTeam || null;
+  const awayTeam = boxscoreGame?.awayTeam || null;
+  const homeStats = homeTeam?.statistics || {};
+  const awayStats = awayTeam?.statistics || {};
+  const homePlayers = Array.isArray(homeTeam?.players) ? homeTeam.players : [];
+  const awayPlayers = Array.isArray(awayTeam?.players) ? awayTeam.players : [];
+  const actions = Array.isArray(playByPlayGame?.actions) ? playByPlayGame.actions : [];
+  const advancedPlayers = Array.isArray(advancedBoxScore?.players) ? advancedBoxScore.players : [];
+  const advancedTeams = Array.isArray(advancedBoxScore?.teams) ? advancedBoxScore.teams : [];
+  const sampleAction = actions.find((action) => action && typeof action === "object") || null;
+
+  const requiredTeamStatKeys = [
+    "points",
+    "fieldGoalsAttempted",
+    "fieldGoalsMade",
+    "freeThrowsAttempted",
+    "reboundsOffensive",
+    "reboundsTotal",
+    "turnoversTotal",
+  ];
+  const missingHomeStatKeys = requiredTeamStatKeys.filter((key) => homeStats?.[key] == null);
+  const missingAwayStatKeys = requiredTeamStatKeys.filter((key) => awayStats?.[key] == null);
+
+  const checks = [
+    buildHealthCheck(
+      "Schedule entry found",
+      Boolean(scheduleGame?.gameId),
+      scheduleGame?.gameId ? `${scheduleGame.awayTeam?.teamTricode || "?"} @ ${scheduleGame.homeTeam?.teamTricode || "?"} · ${scheduleGame.gameStatusText || "Unknown status"}` : report?.scheduleError || "Game ID not found in WNBA schedule payload.",
+      "warn"
+    ),
+    buildHealthCheck(
+      "Live boxscore payload",
+      Boolean(boxscoreGame?.gameId),
+      boxscoreGame?.gameId ? `Status ${boxscoreGame.gameStatus || "?"} · ${boxscoreGame.gameStatusText || "Unknown"}` : report?.liveError || "Boxscore payload missing.",
+      "fail"
+    ),
+    buildHealthCheck(
+      "Play-by-play actions",
+      actions.length > 0,
+      actions.length ? `${actions.length} actions present.` : "No play-by-play actions found.",
+      "warn"
+    ),
+    buildHealthCheck(
+      "Home/away teams populated",
+      Boolean(homeTeam?.teamId && awayTeam?.teamId),
+      homeTeam?.teamId && awayTeam?.teamId ? `${awayTeam.teamTricode || awayTeam.teamId} @ ${homeTeam.teamTricode || homeTeam.teamId}` : "One or both team records are missing.",
+      "fail"
+    ),
+    buildHealthCheck(
+      "Player arrays populated",
+      homePlayers.length > 0 && awayPlayers.length > 0,
+      `Home players: ${homePlayers.length} · Away players: ${awayPlayers.length}`,
+      "warn"
+    ),
+    buildHealthCheck(
+      "Team total keys present",
+      missingHomeStatKeys.length === 0 && missingAwayStatKeys.length === 0,
+      `Home missing: ${missingHomeStatKeys.join(", ") || "none"} · Away missing: ${missingAwayStatKeys.join(", ") || "none"}`,
+      "warn"
+    ),
+    buildHealthCheck(
+      "Action shape usable",
+      Boolean(sampleAction?.actionType && sampleAction?.period != null && sampleAction?.clock),
+      sampleAction
+        ? `Sample action keys: ${["actionType", "period", "clock", "teamId", "personId", "possession"].map((key) => `${key}:${sampleAction?.[key] == null ? "missing" : "ok"}`).join(" · ")}`
+        : "No action available to validate.",
+      "warn"
+    ),
+    buildHealthCheck(
+      "Possession field present",
+      actions.some((action) => action?.possession != null),
+      actions.some((action) => action?.possession != null) ? "At least one action includes a possession owner." : "No possession field found in play-by-play actions.",
+      "warn"
+    ),
+    buildHealthCheck(
+      "Official advanced rows returned",
+      advancedPlayers.length > 0 && advancedTeams.length > 0,
+      `Advanced players: ${advancedPlayers.length} · Advanced teams: ${advancedTeams.length}`,
+      "warn"
+    ),
+    buildHealthCheck(
+      "Normalized game object built",
+      Boolean(normalizedGame?.gameId),
+      normalizedGame?.gameId ? `Normalized ${normalizedGame.awayTeam?.teamTricode || "?"} @ ${normalizedGame.homeTeam?.teamTricode || "?"}` : "Normalization failed.",
+      "fail"
+    ),
+    buildHealthCheck(
+      "Normalized players available",
+      Boolean(normalizedGame?.boxScore?.home?.players?.length && normalizedGame?.boxScore?.away?.players?.length),
+      `Home normalized players: ${normalizedGame?.boxScore?.home?.players?.length || 0} · Away normalized players: ${normalizedGame?.boxScore?.away?.players?.length || 0}`,
+      "warn"
+    ),
+    buildHealthCheck(
+      "Normalized team ratings available",
+      Number.isFinite(normalizedGame?.teamStats?.home?.offensiveRating) && Number.isFinite(normalizedGame?.teamStats?.away?.offensiveRating),
+      `Home ORTG: ${formatHealthValue(normalizedGame?.teamStats?.home?.offensiveRating)} · Away ORTG: ${formatHealthValue(normalizedGame?.teamStats?.away?.offensiveRating)}`,
+      "warn"
+    ),
+    buildHealthCheck(
+      "Normalized pace available",
+      Number.isFinite(normalizedGame?.teamStats?.home?.pace) && Number.isFinite(normalizedGame?.teamStats?.away?.pace),
+      `Home pace: ${formatHealthValue(normalizedGame?.teamStats?.home?.pace)} · Away pace: ${formatHealthValue(normalizedGame?.teamStats?.away?.pace)}`,
+      "warn"
+    ),
+  ];
+
+  const passCount = checks.filter((check) => check.passed).length;
+  const warnCount = checks.filter((check) => !check.passed && check.severity === "warn").length;
+  const failCount = checks.filter((check) => !check.passed && check.severity === "fail").length;
+
+  return {
+    checks,
+    summary: {
+      passCount,
+      warnCount,
+      failCount,
+      actionCount: actions.length,
+      homePlayers: homePlayers.length,
+      awayPlayers: awayPlayers.length,
+      advancedPlayers: advancedPlayers.length,
+      advancedTeams: advancedTeams.length,
+    },
+  };
+}
+
+function WnbaFeedHealthCard() {
+  const [gameId, setGameId] = useState("1022500001");
+  const healthMutation = useMutation({
+    mutationFn: fetchWnbaFeedHealth,
+  });
+
+  const report = healthMutation.data || null;
+  const summary = useMemo(() => (
+    report ? summarizeWnbaFeedHealth(report) : null
+  ), [report]);
+
+  const runCheck = () => {
+    const trimmed = String(gameId || "").trim();
+    if (!trimmed) return;
+    healthMutation.mutate(trimmed);
+  };
+
+  return (
+    <div className={styles.feedCard}>
+      <div className={styles.feedHeader}>
+        <div>
+          <div className={styles.profileName}>WNBA Feed Health Check</div>
+          <div className={styles.inviteMeta}>
+            Checks the WNBA schedule feed, live boxscore, play-by-play, official advanced rows, and the app&apos;s normalized output for a specific game ID.
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.formGrid}>
+        <label className={styles.field}>
+          <span>Game ID</span>
+          <input
+            type="text"
+            value={gameId}
+            onChange={(event) => setGameId(event.target.value)}
+            placeholder="1022500001"
+          />
+        </label>
+      </div>
+
+      <div className={styles.inviteActions}>
+        <button
+          type="button"
+          className={styles.primaryButton}
+          disabled={healthMutation.isPending || !String(gameId || "").trim()}
+          onClick={runCheck}
+        >
+          {healthMutation.isPending ? "Checking..." : "Run Feed Check"}
+        </button>
+      </div>
+
+      {healthMutation.isError ? (
+        <div className={styles.message}>
+          {healthMutation.error?.message || "Unable to run WNBA feed health check."}
+        </div>
+      ) : null}
+
+      {summary ? (
+        <div className={styles.feedResults}>
+          <div className={styles.feedSummaryGrid}>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Pass</div>
+              <div className={styles.feedStatValue}>{summary.summary.passCount}</div>
+            </div>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Warnings</div>
+              <div className={styles.feedStatValue}>{summary.summary.warnCount}</div>
+            </div>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Failures</div>
+              <div className={styles.feedStatValue}>{summary.summary.failCount}</div>
+            </div>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Actions</div>
+              <div className={styles.feedStatValue}>{summary.summary.actionCount}</div>
+            </div>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Players</div>
+              <div className={styles.feedStatValue}>{summary.summary.awayPlayers + summary.summary.homePlayers}</div>
+            </div>
+            <div className={styles.feedStatCard}>
+              <div className={styles.feedStatLabel}>Advanced Rows</div>
+              <div className={styles.feedStatValue}>{summary.summary.advancedPlayers}/{summary.summary.advancedTeams}</div>
+            </div>
+          </div>
+
+          <div className={styles.feedChecks}>
+            {summary.checks.map((check) => (
+              <div
+                key={check.label}
+                className={`${styles.feedCheckRow} ${check.passed ? styles.feedCheckPass : check.severity === "fail" ? styles.feedCheckFail : styles.feedCheckWarn}`.trim()}
+              >
+                <div className={styles.feedCheckLabel}>{check.label}</div>
+                <div className={styles.feedCheckStatus}>{check.passed ? "PASS" : check.severity === "fail" ? "FAIL" : "WARN"}</div>
+                <div className={styles.feedCheckDetail}>{check.detail}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.feedMetaGrid}>
+            <div className={styles.noticeCard}>
+              <div className={styles.scopeLabel}>Schedule</div>
+              <div>{report.scheduleGame?.awayTeam?.teamTricode || "?"} @ {report.scheduleGame?.homeTeam?.teamTricode || "?"}</div>
+              <div className={styles.inviteMeta}>{report.scheduleGame?.gameStatusText || report.scheduleError || "Unavailable"}</div>
+            </div>
+            <div className={styles.noticeCard}>
+              <div className={styles.scopeLabel}>Normalized</div>
+              <div>{report.normalizedGame?.awayTeam?.teamTricode || "?"} @ {report.normalizedGame?.homeTeam?.teamTricode || "?"}</div>
+              <div className={styles.inviteMeta}>
+                PACE {formatHealthValue(report.normalizedGame?.teamStats?.away?.pace)} / {formatHealthValue(report.normalizedGame?.teamStats?.home?.pace)}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.noticeCard}>
+          Run a check against a WNBA game ID to validate the live feeds and see where the app would break if the payload shape changes.
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ProfileCard({ profile, actorId, onSave }) {
   const [draftRole, setDraftRole] = useState(profile.role || "coach");
@@ -1062,6 +1332,12 @@ export default function Admin() {
             <div className={styles.list}>
               <TeamRosterCard teamScope="mystics" title="Mystics" />
             </div>
+          </div>
+        ) : null}
+
+        {activeSection === "feed-health" ? (
+          <div className={styles.section}>
+            <WnbaFeedHealthCard />
           </div>
         ) : null}
 
