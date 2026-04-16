@@ -1,7 +1,7 @@
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchGame, teamLogoUrl } from "../api.js";
+import { fetchGame } from "../api.js";
 import {
   fetchRemotePregamePlayers,
   getTeamBoxScorePlayers,
@@ -1335,6 +1335,64 @@ function buildRotationsPdfHtml({
   `;
 }
 
+async function embedPdfLogoFromAsset(pdfDoc, assetUrl) {
+  if (typeof window === "undefined" || !assetUrl) return null;
+
+  const response = await fetch(assetUrl);
+  if (!response.ok) {
+    throw new Error(`Logo request failed: ${response.status}`);
+  }
+
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  const bytes = await response.arrayBuffer();
+
+  if (contentType.includes("png")) {
+    return pdfDoc.embedPng(bytes);
+  }
+  if (contentType.includes("jpeg") || contentType.includes("jpg")) {
+    return pdfDoc.embedJpg(bytes);
+  }
+  if (!contentType.includes("svg")) {
+    throw new Error(`Unsupported logo content type: ${contentType || "unknown"}`);
+  }
+
+  const blob = new Blob([bytes], { type: "image/svg+xml" });
+  const blobUrl = window.URL.createObjectURL(blob);
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const nextImage = new window.Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error("Unable to decode SVG logo."));
+      nextImage.src = blobUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || image.width || 200;
+    canvas.height = image.naturalHeight || image.height || 200;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Unable to create canvas for logo export.");
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const pngBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob((nextBlob) => {
+        if (nextBlob) {
+          resolve(nextBlob);
+          return;
+        }
+        reject(new Error("Unable to rasterize SVG logo."));
+      }, "image/png");
+    });
+
+    const pngBytes = await pngBlob.arrayBuffer();
+    return pdfDoc.embedPng(pngBytes);
+  } finally {
+    window.URL.revokeObjectURL(blobUrl);
+  }
+}
+
 export default function Rotations() {
   const { gameId } = useParams();
   const [params] = useSearchParams();
@@ -2492,12 +2550,8 @@ export default function Rotations() {
 
       let logoImage = null;
       try {
-        const logoUrl = new URL("../assets/WWizards_Primary_Icon.png", import.meta.url).href;
-        const logoResponse = await fetch(logoUrl);
-        if (logoResponse.ok) {
-          const logoBytes = await logoResponse.arrayBuffer();
-          logoImage = await pdfDoc.embedPng(logoBytes);
-        }
+        const logoUrl = new URL("../assets/Mystics_Primary_Icon.svg", import.meta.url).href;
+        logoImage = await embedPdfLogoFromAsset(pdfDoc, logoUrl);
       } catch {
         logoImage = null;
       }
