@@ -13,5 +13,8 @@ verify_jwt = false
 [functions.wnba-schedule]
 verify_jwt = false
 
+[functions.wnba-live-game]
+verify_jwt = false
+
 [functions.export-image]
 verify_jwt = false

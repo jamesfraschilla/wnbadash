@@ -25,6 +25,20 @@ async function requestWnbaSchedule() {
   return requestJson(WNBA_SCHEDULE_URL);
 }
 
+async function requestWnbaLiveGame(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  if (SUPABASE_FUNCTIONS_BASE) {
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-live-game?gameId=${encodeURIComponent(normalizedGameId)}`);
+  }
+
+  const [boxscore, playByPlay] = await Promise.all([
+    requestJson(`${WNBA_LIVE_BOXSCORE_BASE}/boxscore_${normalizedGameId}.json`),
+    requestJson(`${WNBA_LIVE_PLAYBYPLAY_BASE}/playbyplay_${normalizedGameId}.json`),
+  ]);
+
+  return { boxscore, playByPlay };
+}
+
 function padGameId(gameId) {
   return String(gameId || "").trim().padStart(10, "0");
 }
@@ -702,21 +716,16 @@ export async function fetchGame(gameId, segment = null) {
     return requestJson(url);
   }
 
-  const [boxscoreResult, playByPlayResult] = await Promise.allSettled([
-    requestJson(`${WNBA_LIVE_BOXSCORE_BASE}/boxscore_${normalizedGameId}.json`),
-    requestJson(`${WNBA_LIVE_PLAYBYPLAY_BASE}/playbyplay_${normalizedGameId}.json`),
-  ]);
-
-  if (boxscoreResult.status !== "fulfilled") {
+  const liveGameResult = await requestWnbaLiveGame(normalizedGameId).catch((error) => ({ error }));
+  if (liveGameResult?.error) {
     const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
     if (scheduledGame?.gameStatus === 1) {
       return scheduledGame;
     }
-    throw boxscoreResult.reason;
+    throw liveGameResult.error;
   }
 
-  const playByPlayPayload = playByPlayResult.status === "fulfilled" ? playByPlayResult.value : {};
-  return normalizeWnbaLiveGame(boxscoreResult.value, playByPlayPayload);
+  return normalizeWnbaLiveGame(liveGameResult.boxscore, liveGameResult.playByPlay || {});
 }
 
 export async function fetchMinutes(gameId) {
