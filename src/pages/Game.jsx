@@ -220,6 +220,15 @@ const cleanWheelDescriptor = (value) => (
     .trim()
 );
 
+const isMysticsTeam = (team) => {
+  const tricode = String(team?.teamTricode || "").toUpperCase();
+  const name = `${team?.teamCity || ""} ${team?.teamName || ""}`.toLowerCase();
+  return (
+    (tricode === "WAS" && name.includes("mystics")) ||
+    (name.includes("washington") && name.includes("mystics"))
+  );
+};
+
 const loadSnapshots = (gameId) => {
   if (typeof window === "undefined") return [];
   const raw = readLocalStorage(`${SNAPSHOT_STORAGE_PREFIX}${gameId}`);
@@ -715,6 +724,7 @@ export default function Game({ variant = "full" }) {
     [regulationPeriodSeconds]
   );
   const trackedGame = isTrackedGame(game);
+  const isMysticsGame = isMysticsTeam(homeTeam) || isMysticsTeam(awayTeam);
   const [publishedOfficialOrder, setPublishedOfficialOrder] = useState(null);
   const timeouts = game?.timeouts;
   const isPregame = game?.gameStatus === 1;
@@ -1819,6 +1829,14 @@ export default function Game({ variant = "full" }) {
               to={dateParam ? `/g/${gameId}/pregame?d=${dateParam}` : `/g/${gameId}/pregame`}
             >
               Pre-Game
+            </Link>
+          )}
+          {showExtras && isMysticsGame && (
+            <Link
+              className={styles.backButton}
+              to={dateParam ? `/g/${gameId}/rotations?d=${dateParam}` : `/g/${gameId}/rotations`}
+            >
+              Rotations
             </Link>
           )}
         </div>
