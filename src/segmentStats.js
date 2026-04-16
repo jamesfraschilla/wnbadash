@@ -117,6 +117,10 @@ function classifyShot(action) {
   return "mid";
 }
 
+function normalizeDescriptor(action) {
+  return String(action.descriptor || "").trim().toLowerCase();
+}
+
 function isPersonalFoul(action) {
   const subtype = String(action.subType || "").toLowerCase();
   return !subtype.includes("technical");
@@ -295,15 +299,17 @@ export function aggregateSegmentStats({
 
     if (action.actionType === "2pt" || action.actionType === "3pt") {
       const description = `${action.description || ""} ${action.descriptor || ""}`.toLowerCase();
+      const descriptor = normalizeDescriptor(action);
       const drivingKeywords = ["driving layup", "driving dunk", "driving float", "driving hook"];
       const shotDistance = Number(action.shotDistance || 0);
       const isDriving =
-        action.actionType === "2pt" &&
-        shotDistance <= 7 &&
-        drivingKeywords.some((keyword) => description.includes(keyword));
-      const isCutting = description.includes("cutting");
-      const isPullup = /pull.?up/.test(description);
-      const isStepBack = /step.?back/.test(description);
+        action.actionType === "2pt" && (
+          descriptor.includes("driving") ||
+          (shotDistance <= 7 && drivingKeywords.some((keyword) => description.includes(keyword)))
+        );
+      const isCutting = descriptor.includes("cutting") || description.includes("cutting");
+      const isPullup = /pull.?up/.test(descriptor) || /pull.?up/.test(description);
+      const isStepBack = /step.?back/.test(descriptor) || /step.?back/.test(description);
       const isCatchAndShoot3 = action.actionType === "3pt" && !isPullup && !isStepBack;
 
       const qualifiers = action.qualifiers || [];
@@ -399,6 +405,10 @@ export function aggregateSegmentStats({
     }
 
     if (action.actionType === "freethrow") {
+      const qualifiers = action.qualifiers || [];
+      const isFastBreak = qualifiers.includes("fastbreak");
+      const isSecondChance = qualifiers.includes("2ndchance") || qualifiers.includes("secondchance");
+      const isFromTurnover = qualifiers.includes("fromturnover");
       if (teamStats) teamStats.freeThrowsAttempted += 1;
       if (action.personId) {
         const player = ensurePlayer(playerMap, action.personId, baseMap.get(action.personId));
@@ -411,6 +421,9 @@ export function aggregateSegmentStats({
       if (action.shotResult === "Made" && teamStats) {
         teamStats.freeThrowsMade += 1;
         teamStats.points += 1;
+        if (isFastBreak) teamStats.transitionPoints += 1;
+        if (isSecondChance) teamStats.secondChancePoints += 1;
+        if (isFromTurnover) teamStats.pointsOffTurnovers += 1;
       }
     }
 

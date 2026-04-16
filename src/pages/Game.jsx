@@ -1232,13 +1232,22 @@ export default function Game({ variant = "full" }) {
         : Number.isFinite(fallback)
           ? fallback
           : 0;
+    const preferComputed = (key) => pickValue(snapshot?.[key], pickValue(computed?.[key], base?.[key]));
     const pointsOffTurnovers = pickValue(
       snapshot?.pointsOffTurnovers,
-      pickValue(computed?.pointsOffTurnovers, base?.pointsOffTurnovers)
+      pickValue(base?.pointsOffTurnovers, computed?.pointsOffTurnovers)
+    );
+    const secondChancePoints = pickValue(
+      snapshot?.secondChancePoints,
+      pickValue(base?.secondChancePoints, computed?.secondChancePoints)
     );
     const paintPoints = pickValue(
       snapshot?.paintPoints,
-      pickValue(computed?.paintPoints, base?.paintPoints)
+      pickValue(base?.paintPoints, computed?.paintPoints)
+    );
+    const transitionPoints = pickValue(
+      snapshot?.transitionPoints,
+      pickValue(base?.transitionPoints, computed?.transitionPoints)
     );
     const secondChance3FGMade = pickValue(
       snapshot?.secondChance3FGMade,
@@ -1251,9 +1260,18 @@ export default function Game({ variant = "full" }) {
     return {
       ...base,
       pointsOffTurnovers,
+      secondChancePoints,
       paintPoints,
+      transitionPoints,
+      drivingFGMade: preferComputed("drivingFGMade"),
+      drivingFGAttempted: preferComputed("drivingFGAttempted"),
+      cuttingFGMade: preferComputed("cuttingFGMade"),
+      cuttingFGAttempted: preferComputed("cuttingFGAttempted"),
+      catchAndShoot3FGMade: preferComputed("catchAndShoot3FGMade"),
+      catchAndShoot3FGAttempted: preferComputed("catchAndShoot3FGAttempted"),
       secondChance3FGMade,
       secondChance3FGAttempted,
+      offensiveFoulsDrawn: preferComputed("offensiveFoulsDrawn"),
     };
   };
   const mergeSegmentTotals = (computed, snapshot) =>
@@ -1426,14 +1444,17 @@ export default function Game({ variant = "full" }) {
   const mergeTransitionSource = (snapshotTotals, computedTotals, fallbackTotals = {}) => {
     const base = snapshotTotals || computedTotals || fallbackTotals || {};
     if (!computedTotals) return base;
+    const preferBaseValue = (key) => (
+      Number.isFinite(fallbackTotals?.[key]) ? fallbackTotals[key] : base[key]
+    );
     return {
       ...base,
       transitionPossessions: computedTotals.transitionPossessions ?? base.transitionPossessions ?? 0,
-      transitionPoints: computedTotals.transitionPoints ?? base.transitionPoints ?? 0,
+      transitionPoints: preferBaseValue("transitionPoints") ?? computedTotals.transitionPoints ?? 0,
       transitionTurnovers: computedTotals.transitionTurnovers ?? base.transitionTurnovers ?? 0,
-      secondChancePoints: computedTotals.secondChancePoints ?? base.secondChancePoints ?? 0,
-      pointsOffTurnovers: computedTotals.pointsOffTurnovers ?? base.pointsOffTurnovers ?? 0,
-      paintPoints: computedTotals.paintPoints ?? base.paintPoints ?? 0,
+      secondChancePoints: preferBaseValue("secondChancePoints") ?? computedTotals.secondChancePoints ?? 0,
+      pointsOffTurnovers: preferBaseValue("pointsOffTurnovers") ?? computedTotals.pointsOffTurnovers ?? 0,
+      paintPoints: preferBaseValue("paintPoints") ?? computedTotals.paintPoints ?? 0,
       threePointOReb: computedTotals.threePointOReb ?? base.threePointOReb ?? 0,
       reboundsOffensive: computedTotals.reboundsOffensive ?? base.reboundsOffensive ?? 0,
     };
