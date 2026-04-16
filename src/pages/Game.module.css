@@ -642,6 +642,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   display: grid;
   gap: 2px;
   margin-top: 2px;
+  justify-items: center;
 }
 
 .paceRow {
@@ -651,9 +652,9 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
 }
 
 .paceSubRow {
-  font-size: 16px;
-  font-weight: 400;
-  color: var(--muted);
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--text);
 }
 
 .status {
