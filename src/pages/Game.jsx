@@ -1354,6 +1354,8 @@ export default function Game({ variant = "full" }) {
     possessionCounts
     && possessionCounts.homePossessions > 0
     && possessionCounts.awayPossessions > 0;
+  const possessionOffset =
+    segment === "all" && hasPossessionCounts && isWnbaGame ? 1 : 0;
 
   if (isLoading) {
     return <div className={styles.stateMessage}>Loading game details...</div>;
@@ -1384,10 +1386,10 @@ export default function Game({ variant = "full" }) {
     Number.isFinite(officialHomePossessions);
 
   const fallbackAwayPossessions = hasPossessionCounts
-    ? possessionCounts.awayPossessions
+    ? possessionCounts.awayPossessions + possessionOffset
     : Math.max(Math.round(possessions(advancedAwayTotals, advancedHomeTotals)), 1);
   const fallbackHomePossessions = hasPossessionCounts
-    ? possessionCounts.homePossessions
+    ? possessionCounts.homePossessions + possessionOffset
     : Math.max(Math.round(possessions(advancedHomeTotals, advancedAwayTotals)), 1);
 
   const awayPossessions = Math.max(
@@ -1689,8 +1691,10 @@ export default function Game({ variant = "full" }) {
     ? { homeKills: 0, awayKills: 0 }
     : computeKills(game.playByPlayActions || [], segment, homeTeam.teamId, awayTeam.teamId);
 
-  const paceFrom = (possessionsCount) =>
-    segmentSeconds ? (possessionsCount * regulationGameSeconds) / segmentSeconds : 0;
+  const paceFrom = (possessionsCount) => {
+    const officialPaceScaleSeconds = 48 * 60;
+    return segmentSeconds ? (possessionsCount * officialPaceScaleSeconds) / segmentSeconds : 0;
+  };
 
   const basePace = useOfficialPossessions
     ? (officialAwayPossessions + officialHomePossessions) / 2
