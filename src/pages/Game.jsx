@@ -1367,7 +1367,9 @@ export default function Game({ variant = "full" }) {
     return <div className={styles.stateMessage}>Loading game details...</div>;
   }
 
-  const useOfficialRatings = teamStats?.away?.offensiveRating && teamStats?.home?.offensiveRating;
+  const useOfficialRatings =
+    Number.isFinite(teamStats?.away?.offensiveRating) &&
+    Number.isFinite(teamStats?.home?.offensiveRating);
 
   const ortgAway = useOfficialRatings
     ? Math.round(teamStats.away.offensiveRating)
@@ -1383,7 +1385,9 @@ export default function Game({ variant = "full" }) {
         Math.max(possessions(advancedHomeTotals, advancedAwayTotals), 1) *
         100
     );
-  const useOfficialDefensive = teamStats?.away?.defensiveRating && teamStats?.home?.defensiveRating;
+  const useOfficialDefensive =
+    Number.isFinite(teamStats?.away?.defensiveRating) &&
+    Number.isFinite(teamStats?.home?.defensiveRating);
   const drtgAway = useOfficialDefensive
     ? Math.round(teamStats.away.defensiveRating)
     : Math.round(
@@ -1410,7 +1414,9 @@ export default function Game({ variant = "full" }) {
 
   const officialAwayPossessions = teamStats?.away?.possessions;
   const officialHomePossessions = teamStats?.home?.possessions;
-  const useOfficialPossessions = officialAwayPossessions && officialHomePossessions;
+  const useOfficialPossessions =
+    Number.isFinite(officialAwayPossessions) &&
+    Number.isFinite(officialHomePossessions);
 
   const awayPossessions = Math.max(
     useOfficialPossessions
@@ -1700,7 +1706,13 @@ export default function Game({ variant = "full" }) {
     ? (officialAwayPossessions + officialHomePossessions) / 2
     : (awayPossessions + homePossessions) / 2;
 
-  const paceValue = paceFrom(basePace);
+  const officialPace =
+    segment === "all" &&
+    Number.isFinite(teamStats?.away?.pace) &&
+    Number.isFinite(teamStats?.home?.pace)
+      ? (teamStats.away.pace + teamStats.home.pace) / 2
+      : null;
+  const paceValue = Number.isFinite(officialPace) ? officialPace : paceFrom(basePace);
   const displayPaceValue = isPregame ? 0 : paceValue;
 
   const currentPeriod = game.period || 1;

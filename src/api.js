@@ -37,7 +37,7 @@ async function requestWnbaLiveGame(gameId) {
     requestJson(`${WNBA_LIVE_PLAYBYPLAY_BASE}/playbyplay_${normalizedGameId}.json`),
   ]);
 
-  return { boxscore, playByPlay };
+  return { boxscore, playByPlay, advancedBoxScore: { players: [], teams: [] } };
 }
 
 function padGameId(gameId) {
@@ -268,33 +268,122 @@ function buildShotMaps(actions) {
   return { players, teams };
 }
 
-function computeTeamAdvancedStats(totals, opponentTotals) {
-  const possessions = (
+function buildWnbaAdvancedMaps(advancedBoxScorePayload) {
+  const players = new Map();
+  const teams = new Map();
+  const playerRows = arrayValue(advancedBoxScorePayload?.players);
+  const teamRows = arrayValue(advancedBoxScorePayload?.teams);
+
+  playerRows.forEach((row) => {
+    const entry = objectValue(row);
+    const personId = stringValue(
+      entry?.personId,
+      entry?.PLAYER_ID,
+      entry?.playerId,
+    );
+    if (!personId) return;
+    players.set(personId, {
+      offensiveRating: numberValue(entry?.offensiveRating, entry?.OFF_RATING),
+      defensiveRating: numberValue(entry?.defensiveRating, entry?.DEF_RATING),
+      netRating: numberValue(entry?.netRating, entry?.NET_RATING),
+      assistPercentage: numberValue(entry?.assistPercentage, entry?.AST_PCT),
+      assistToTurnover: numberValue(entry?.assistToTurnover, entry?.AST_TO),
+      assistRatio: numberValue(entry?.assistRatio, entry?.AST_RATIO),
+      offensiveReboundPercentage: numberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
+      defensiveReboundPercentage: numberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
+      reboundPercentage: numberValue(entry?.reboundPercentage, entry?.REB_PCT),
+      turnoverRatio: numberValue(entry?.turnoverRatio, entry?.TM_TOV_PCT),
+      effectiveFieldGoalPercentage: numberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
+      trueShootingPercentage: numberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
+      usagePercentage: numberValue(entry?.usagePercentage, entry?.USG_PCT),
+      pace: numberValue(entry?.pace, entry?.PACE),
+      possessions: numberValue(entry?.possessions, entry?.POSS),
+      pie: numberValue(entry?.PIE, entry?.pie),
+    });
+  });
+
+  teamRows.forEach((row) => {
+    const entry = objectValue(row);
+    const teamId = stringValue(
+      entry?.teamId,
+      entry?.TEAM_ID,
+      entry?.team_id,
+    );
+    if (!teamId) return;
+    teams.set(teamId, {
+      offensiveRating: numberValue(entry?.offensiveRating, entry?.OFF_RATING),
+      defensiveRating: numberValue(entry?.defensiveRating, entry?.DEF_RATING),
+      netRating: numberValue(entry?.netRating, entry?.NET_RATING),
+      assistPercentage: numberValue(entry?.assistPercentage, entry?.AST_PCT),
+      assistToTurnover: numberValue(entry?.assistToTurnover, entry?.AST_TO),
+      assistRatio: numberValue(entry?.assistRatio, entry?.AST_RATIO),
+      offensiveReboundPercentage: numberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
+      defensiveReboundPercentage: numberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
+      reboundPercentage: numberValue(entry?.reboundPercentage, entry?.REB_PCT),
+      estimatedTeamTurnoverPercentage: numberValue(entry?.estimatedTeamTurnoverPercentage, entry?.TM_TOV_PCT),
+      turnoverRatio: numberValue(entry?.turnoverRatio, entry?.TOV_PCT),
+      effectiveFieldGoalPercentage: numberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
+      trueShootingPercentage: numberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
+      usagePercentage: numberValue(entry?.usagePercentage, entry?.USG_PCT),
+      pace: numberValue(entry?.pace, entry?.PACE),
+      possessions: numberValue(entry?.possessions, entry?.POSS),
+      pie: numberValue(entry?.PIE, entry?.pie),
+    });
+  });
+
+  return { players, teams };
+}
+
+function computeTeamAdvancedStats(totals, opponentTotals, officialAdvanced = {}) {
+  const computedPossessions = (
     numberValue(totals?.fieldGoalsAttempted) +
     (0.44 * numberValue(totals?.freeThrowsAttempted)) -
     numberValue(totals?.reboundsOffensive) +
     numberValue(totals?.turnovers)
   );
-  const opponentPossessions = (
+  const computedOpponentPossessions = (
     numberValue(opponentTotals?.fieldGoalsAttempted) +
     (0.44 * numberValue(opponentTotals?.freeThrowsAttempted)) -
     numberValue(opponentTotals?.reboundsOffensive) +
     numberValue(opponentTotals?.turnovers)
   );
-  const offensiveRating = possessions ? (100 * numberValue(totals?.points) / possessions) : 0;
-  const defensiveRating = opponentPossessions ? (100 * numberValue(opponentTotals?.points) / opponentPossessions) : 0;
+  const possessions = numberValue(officialAdvanced?.possessions, computedPossessions);
+  const opponentPossessions = numberValue(computedOpponentPossessions);
+  const offensiveRating = numberValue(
+    officialAdvanced?.offensiveRating,
+    possessions ? (100 * numberValue(totals?.points) / possessions) : 0
+  );
+  const defensiveRating = numberValue(
+    officialAdvanced?.defensiveRating,
+    opponentPossessions ? (100 * numberValue(opponentTotals?.points) / opponentPossessions) : 0
+  );
   return {
     possessions,
     offensiveRating,
     defensiveRating,
-    netRating: offensiveRating - defensiveRating,
+    netRating: numberValue(officialAdvanced?.netRating, offensiveRating - defensiveRating),
+    pace: numberValue(officialAdvanced?.pace),
+    assistPercentage: numberValue(officialAdvanced?.assistPercentage),
+    assistToTurnover: numberValue(officialAdvanced?.assistToTurnover),
+    assistRatio: numberValue(officialAdvanced?.assistRatio),
+    offensiveReboundPercentage: numberValue(officialAdvanced?.offensiveReboundPercentage),
+    defensiveReboundPercentage: numberValue(officialAdvanced?.defensiveReboundPercentage),
+    reboundPercentage: numberValue(officialAdvanced?.reboundPercentage),
+    turnoverRatio: numberValue(
+      officialAdvanced?.turnoverRatio,
+      officialAdvanced?.estimatedTeamTurnoverPercentage
+    ),
+    effectiveFieldGoalPercentage: numberValue(officialAdvanced?.effectiveFieldGoalPercentage),
+    trueShootingPercentage: numberValue(officialAdvanced?.trueShootingPercentage),
+    usagePercentage: numberValue(officialAdvanced?.usagePercentage),
+    pie: numberValue(officialAdvanced?.pie),
     advancedStats: {
       deflections: numberValue(totals?.deflections),
     },
   };
 }
 
-function normalizeWnbaLiveTeam(team, shotSplits) {
+function normalizeWnbaLiveTeam(team, shotSplits, advancedMaps = { players: new Map(), teams: new Map() }) {
   const totalsSource = objectValue(team?.statistics);
   const teamId = stringValue(team?.teamId, team?.team_id);
   const teamName = stringValue(team?.teamName, team?.team_name, team?.teamTricode);
@@ -303,8 +392,11 @@ function normalizeWnbaLiveTeam(team, shotSplits) {
     const stats = objectValue(player?.statistics);
     const personId = stringValue(player?.personId, player?.person_id);
     const split = shotSplits.players.get(personId) || {};
+    const advanced = advancedMaps.players.get(personId) || {};
     const firstName = stringValue(name?.firstName, player?.firstName, player?.first_name);
     const familyName = stringValue(name?.familyName, player?.familyName, player?.family_name);
+    const offensiveRating = numberValue(stats?.offensiveRating, stats?.offensive_rating, advanced.offensiveRating);
+    const defensiveRating = numberValue(stats?.defensiveRating, stats?.defensive_rating, advanced.defensiveRating);
     return {
       personId,
       firstName,
@@ -335,8 +427,24 @@ function normalizeWnbaLiveTeam(team, shotSplits) {
       threePointersAttempted: numberValue(stats?.threePointersAttempted, stats?.three_pointers_attempted),
       freeThrowsMade: numberValue(stats?.freeThrowsMade, stats?.free_throws_made),
       freeThrowsAttempted: numberValue(stats?.freeThrowsAttempted, stats?.free_throws_attempted),
-      ortg: numberValue(stats?.offensiveRating, stats?.offensive_rating),
-      drtg: numberValue(stats?.defensiveRating, stats?.defensive_rating),
+      offensiveRating,
+      defensiveRating,
+      netRating: numberValue(advanced.netRating),
+      assistPercentage: numberValue(advanced.assistPercentage),
+      assistToTurnover: numberValue(advanced.assistToTurnover),
+      assistRatio: numberValue(advanced.assistRatio),
+      offensiveReboundPercentage: numberValue(advanced.offensiveReboundPercentage),
+      defensiveReboundPercentage: numberValue(advanced.defensiveReboundPercentage),
+      reboundPercentage: numberValue(advanced.reboundPercentage),
+      turnoverRatio: numberValue(advanced.turnoverRatio),
+      effectiveFieldGoalPercentage: numberValue(advanced.effectiveFieldGoalPercentage),
+      trueShootingPercentage: numberValue(advanced.trueShootingPercentage),
+      usagePercentage: numberValue(advanced.usagePercentage),
+      pace: numberValue(advanced.pace),
+      possessions: numberValue(advanced.possessions),
+      pie: numberValue(advanced.pie),
+      ortg: offensiveRating,
+      drtg: defensiveRating,
       rimFieldGoalsMade: numberValue(stats?.rimFieldGoalsMade, split.rimFieldGoalsMade),
       rimFieldGoalsAttempted: numberValue(stats?.rimFieldGoalsAttempted, split.rimFieldGoalsAttempted),
       midFieldGoalsMade: numberValue(stats?.midFieldGoalsMade, split.midFieldGoalsMade),
@@ -349,6 +457,7 @@ function normalizeWnbaLiveTeam(team, shotSplits) {
   players.sort((a, b) => a.order - b.order || a.familyName.localeCompare(b.familyName));
 
   const splitTotals = shotSplits.teams.get(teamId) || {};
+  const teamAdvanced = advancedMaps.teams.get(teamId) || {};
   return {
     teamId,
     teamName,
@@ -365,7 +474,7 @@ function normalizeWnbaLiveTeam(team, shotSplits) {
       assists: numberValue(totalsSource?.assists),
       blocks: numberValue(totalsSource?.blocks),
       steals: numberValue(totalsSource?.steals),
-      turnovers: numberValue(totalsSource?.turnovers),
+      turnovers: numberValue(totalsSource?.turnoversTotal, totalsSource?.turnovers),
       foulsPersonal: numberValue(totalsSource?.foulsPersonal, totalsSource?.fouls_personal),
       fieldGoalsMade: numberValue(totalsSource?.fieldGoalsMade, totalsSource?.field_goals_made),
       fieldGoalsAttempted: numberValue(totalsSource?.fieldGoalsAttempted, totalsSource?.field_goals_attempted),
@@ -377,6 +486,15 @@ function normalizeWnbaLiveTeam(team, shotSplits) {
       rimFieldGoalsAttempted: numberValue(totalsSource?.rimFieldGoalsAttempted, splitTotals.rimFieldGoalsAttempted),
       midFieldGoalsMade: numberValue(totalsSource?.midFieldGoalsMade, splitTotals.midFieldGoalsMade),
       midFieldGoalsAttempted: numberValue(totalsSource?.midFieldGoalsAttempted, splitTotals.midFieldGoalsAttempted),
+      effectiveFieldGoalPercentage: numberValue(
+        teamAdvanced.effectiveFieldGoalPercentage,
+        totalsSource?.fieldGoalsEffectiveAdjusted
+      ),
+      trueShootingPercentage: numberValue(
+        teamAdvanced.trueShootingPercentage,
+        totalsSource?.trueShootingPercentage
+      ),
+      assistToTurnover: numberValue(teamAdvanced.assistToTurnover, totalsSource?.assistsTurnoverRatio),
       deflections: numberValue(totalsSource?.deflections),
     },
   };
@@ -522,7 +640,7 @@ function buildWnbaMinutesData(game) {
   };
 }
 
-function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload) {
+function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload, advancedBoxScorePayload = {}) {
   const gameSource = objectValue(boxscorePayload?.game, playByPlayPayload?.game);
   const homeTeamSource = objectValue(gameSource?.homeTeam);
   const awayTeamSource = objectValue(gameSource?.awayTeam);
@@ -532,10 +650,19 @@ function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload) {
     normalizeWnbaAction(action, homeTeam.teamId, awayTeam.teamId)
   ));
   const shotSplits = buildShotMaps(actions);
-  const homeBoxScore = normalizeWnbaLiveTeam(homeTeamSource, shotSplits);
-  const awayBoxScore = normalizeWnbaLiveTeam(awayTeamSource, shotSplits);
-  const homeAdvanced = computeTeamAdvancedStats(homeBoxScore.totals, awayBoxScore.totals);
-  const awayAdvanced = computeTeamAdvancedStats(awayBoxScore.totals, homeBoxScore.totals);
+  const advancedMaps = buildWnbaAdvancedMaps(advancedBoxScorePayload);
+  const homeBoxScore = normalizeWnbaLiveTeam(homeTeamSource, shotSplits, advancedMaps);
+  const awayBoxScore = normalizeWnbaLiveTeam(awayTeamSource, shotSplits, advancedMaps);
+  const homeAdvanced = computeTeamAdvancedStats(
+    homeBoxScore.totals,
+    awayBoxScore.totals,
+    advancedMaps.teams.get(homeBoxScore.teamId)
+  );
+  const awayAdvanced = computeTeamAdvancedStats(
+    awayBoxScore.totals,
+    homeBoxScore.totals,
+    advancedMaps.teams.get(awayBoxScore.teamId)
+  );
 
   const officials = arrayValue(gameSource?.officials).map((official) => ({
     personId: stringValue(official?.personId, official?.person_id, official?.officialId),
@@ -733,7 +860,11 @@ export async function fetchGame(gameId, segment = null) {
     throw liveGameResult.error;
   }
 
-  return normalizeWnbaLiveGame(liveGameResult.boxscore, liveGameResult.playByPlay || {});
+  return normalizeWnbaLiveGame(
+    liveGameResult.boxscore,
+    liveGameResult.playByPlay || {},
+    liveGameResult.advancedBoxScore || {}
+  );
 }
 
 export async function fetchMinutes(gameId) {
