@@ -2,6 +2,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGame } from "../api.js";
+import mysticsLogoAltUrl from "../assets/Mystics_logo_alt.webp";
 import {
   fetchRemotePregamePlayers,
   getTeamBoxScorePlayers,
@@ -1335,6 +1336,39 @@ function buildRotationsPdfHtml({
   `;
 }
 
+async function embedPdfLogoFromImageUrl(pdfDoc, imageUrl) {
+  if (typeof window === "undefined" || !imageUrl) return null;
+
+  const image = await new Promise((resolve, reject) => {
+    const nextImage = new window.Image();
+    nextImage.onload = () => resolve(nextImage);
+    nextImage.onerror = () => reject(new Error("Unable to load export logo."));
+    nextImage.src = imageUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || image.width || 200;
+  canvas.height = image.naturalHeight || image.height || 200;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Unable to create canvas for export logo.");
+  }
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const pngBlob = await new Promise((resolve, reject) => {
+    canvas.toBlob((nextBlob) => {
+      if (nextBlob) {
+        resolve(nextBlob);
+        return;
+      }
+      reject(new Error("Unable to rasterize export logo."));
+    }, "image/png");
+  });
+
+  const pngBytes = await pngBlob.arrayBuffer();
+  return pdfDoc.embedPng(pngBytes);
+}
+
 export default function Rotations() {
   const { gameId } = useParams();
   const [params] = useSearchParams();
@@ -2492,7 +2526,7 @@ export default function Rotations() {
 
       let logoImage = null;
       try {
-        logoImage = null;
+        logoImage = await embedPdfLogoFromImageUrl(pdfDoc, mysticsLogoAltUrl);
       } catch {
         logoImage = null;
       }

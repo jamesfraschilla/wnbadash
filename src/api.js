@@ -1,4 +1,5 @@
 import { gLeagueHeadshotOverrides } from "./gLeagueHeadshotOverrides.js";
+import mysticsLogoAltUrl from "./assets/Mystics_logo_alt.webp";
 
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
@@ -746,6 +747,11 @@ export async function fetchMinutes(gameId) {
 }
 
 export function teamLogoUrl(teamId, league = null) {
+  const normalizedTeamId = String(teamId || "").trim();
+  if (normalizedTeamId === "1611661322") {
+    return mysticsLogoAltUrl;
+  }
+
   const inferredLeague =
     league ||
     inferLeagueFromTeamId(teamId);
