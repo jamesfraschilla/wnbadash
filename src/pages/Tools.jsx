@@ -104,6 +104,41 @@ function buildAvailableTeamsFromRosterPayload(payload) {
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
+function buildWnbaRosterMap(payload, fallbackTeams = []) {
+  const remoteTeams = payload?.teams && typeof payload.teams === "object"
+    ? payload.teams
+    : {};
+  const next = Object.fromEntries(
+    Object.entries(remoteTeams).map(([rawTeamId, team]) => {
+      const teamId = String(team?.teamId || rawTeamId).trim() || String(rawTeamId).trim();
+      const fallbackTeam = (fallbackTeams || []).find((entry) => String(entry?.teamId || "").trim() === teamId) || null;
+      const teamName = fallbackTeam?.fullName
+        || `${String(team?.teamCity || "").trim()} ${String(team?.teamName || "").trim()}`.trim()
+        || teamId;
+      const players = Array.isArray(team?.players)
+        ? team.players.map((player) => ({
+          personId: String(player?.personId || "").trim(),
+          firstName: String(player?.firstName || "").trim(),
+          familyName: String(player?.familyName || "").trim(),
+          fullName: String(player?.fullName || "").trim(),
+          jerseyNum: String(player?.jerseyNum || "").trim(),
+          teamId: String(player?.teamId || teamId).trim() || teamId,
+          teamName,
+        })).filter((player) => player.personId && player.fullName)
+        : [];
+      return [teamId, players];
+    })
+  );
+
+  (fallbackTeams || []).forEach((team) => {
+    const teamId = String(team?.teamId || "").trim();
+    if (!teamId || next[teamId]) return;
+    next[teamId] = [];
+  });
+
+  return next;
+}
+
 function buildDraftTitle(draft) {
   const leftTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.leftTeamId) || null;
   const rightTeam = draft?.availableTeams?.find?.((team) => team.teamId === draft?.rightTeamId) || null;
@@ -280,24 +315,7 @@ export default function Tools() {
   }, [availableTeamsQuery, remoteWnbaRostersPayload]);
 
   const wnbaRosterMap = useMemo(() => {
-    const remoteTeams = remoteWnbaRostersPayload?.teams && typeof remoteWnbaRostersPayload.teams === "object"
-      ? remoteWnbaRostersPayload.teams
-      : {};
-    const next = {};
-    availableTeams.forEach((team) => {
-      const remoteRoster = Array.isArray(remoteTeams?.[team.teamId]?.players)
-        ? remoteTeams[team.teamId].players.map((player) => ({
-          personId: String(player?.personId || "").trim(),
-          firstName: String(player?.firstName || "").trim(),
-          familyName: String(player?.familyName || "").trim(),
-          fullName: String(player?.fullName || "").trim(),
-          jerseyNum: String(player?.jerseyNum || "").trim(),
-          teamId: String(player?.teamId || team.teamId).trim() || team.teamId,
-        })).filter((player) => player.personId && player.fullName)
-        : [];
-      next[team.teamId] = remoteRoster;
-    });
-    return next;
+    return buildWnbaRosterMap(remoteWnbaRostersPayload, availableTeams);
   }, [availableTeams, remoteWnbaRostersPayload]);
 
   const league = "wnba";

@@ -91,6 +91,40 @@ function buildAvailableTeamsFromRosterPayload(payload) {
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
+function buildWnbaRosterMap(payload, fallbackTeams = []) {
+  const remoteTeams = payload?.teams && typeof payload.teams === "object"
+    ? payload.teams
+    : {};
+  const next = Object.fromEntries(
+    Object.entries(remoteTeams).map(([rawTeamId, team]) => {
+      const teamId = String(team?.teamId || rawTeamId).trim() || String(rawTeamId).trim();
+      const fallbackTeam = (fallbackTeams || []).find((entry) => String(entry?.teamId || "").trim() === teamId) || null;
+      const teamName = fallbackTeam?.fullName
+        || `${String(team?.teamCity || "").trim()} ${String(team?.teamName || "").trim()}`.trim()
+        || teamId;
+      const players = Array.isArray(team?.players)
+        ? team.players.map((player) => ({
+          personId: String(player?.personId || "").trim(),
+          fullName: String(player?.fullName || "").trim(),
+          jerseyNum: String(player?.jerseyNum || "").trim(),
+          teamId: String(player?.teamId || teamId).trim() || teamId,
+          teamName,
+          heightIn: parseHeightToInches(player?.height),
+        })).filter((player) => player.personId && player.fullName)
+        : [];
+      return [teamId, players];
+    })
+  );
+
+  (fallbackTeams || []).forEach((team) => {
+    const teamId = String(team?.teamId || "").trim();
+    if (!teamId || next[teamId]) return;
+    next[teamId] = [];
+  });
+
+  return next;
+}
+
 const ADMIN_SECTIONS = [
   {
     key: "accounts",
@@ -789,21 +823,7 @@ export default function Admin() {
   });
 
   const wnbaRosterSources = useMemo(() => {
-    const remoteTeams = remoteWnbaRostersPayload?.teams && typeof remoteWnbaRostersPayload.teams === "object"
-      ? remoteWnbaRostersPayload.teams
-      : {};
-    return availableTeams.reduce((accumulator, team) => {
-      const players = Array.isArray(remoteTeams?.[team.teamId]?.players) ? remoteTeams[team.teamId].players : [];
-      accumulator[team.teamId] = players.map((player) => ({
-        personId: String(player?.personId || "").trim(),
-        fullName: String(player?.fullName || "").trim(),
-        jerseyNum: String(player?.jerseyNum || "").trim(),
-        teamId: String(player?.teamId || team.teamId).trim() || team.teamId,
-        teamName: team.fullName,
-        heightIn: parseHeightToInches(player?.height),
-      })).filter((player) => player.personId && player.fullName);
-      return accumulator;
-    }, {});
+    return buildWnbaRosterMap(remoteWnbaRostersPayload, availableTeams);
   }, [availableTeams, remoteWnbaRostersPayload]);
 
   const rosterSources = useMemo(() => ({
