@@ -8,6 +8,7 @@
   align-items: center;
   gap: 12px;
   margin: 8px 0 16px;
+  flex-wrap: wrap;
 }
 
 .dateLabel {
@@ -166,6 +167,28 @@
   color: var(--muted);
 }
 
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.testLink,
+.testLinkInline {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.testLinkInline {
+  margin-left: auto;
+}
+
 @media (max-width: 768px) {
   .gameList {
     grid-template-columns: repeat(2, 1fr);
@@ -189,5 +212,9 @@
   .statusLabel,
   .arena {
     font-size: 11px;
+  }
+
+  .testLinkInline {
+    margin-left: 0;
   }
 }

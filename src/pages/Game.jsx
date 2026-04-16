@@ -17,7 +17,6 @@ import {
   buildPlayByPlaySourceMeta,
   buildVideoEventIdByActionNumber,
   describePlayByPlayAction,
-  NOTE_MINUTE_OPTIONS,
   NOTE_PERIOD_OPTIONS,
   NOTE_SECOND_OPTIONS,
   NOTE_TAG_OPTIONS,
@@ -708,6 +707,13 @@ export default function Game({ variant = "full" }) {
   const { homeTeam, awayTeam, teamStats, boxScore, officials, callsAgainst } = game || {};
   const homeTeamId = homeTeam?.teamId ?? null;
   const awayTeamId = awayTeam?.teamId ?? null;
+  const isWnbaGame = awayLeague === "wnba" || homeLeague === "wnba";
+  const regulationPeriodSeconds = isWnbaGame ? 10 * 60 : 12 * 60;
+  const regulationGameSeconds = regulationPeriodSeconds * 4;
+  const noteMinuteOptions = useMemo(
+    () => ["--", ...Array.from({ length: regulationPeriodSeconds / 60 }, (_, idx) => String(idx))],
+    [regulationPeriodSeconds]
+  );
   const trackedGame = isTrackedGame(game);
   const [publishedOfficialOrder, setPublishedOfficialOrder] = useState(null);
   const timeouts = game?.timeouts;
@@ -1603,7 +1609,7 @@ export default function Game({ variant = "full" }) {
     if (!isLive || !game?.period || !game?.gameClock) return null;
     const predicate = segmentPeriods(segment);
     const currentPeriod = Number(game.period) || 1;
-    const periodLength = (period) => (period <= 4 ? 12 * 60 : 5 * 60);
+    const periodLength = (period) => (period <= 4 ? regulationPeriodSeconds : 5 * 60);
     const remaining = parseIsoClock(game.gameClock);
     const elapsedCurrent = Math.max(0, periodLength(currentPeriod) - remaining);
     let total = 0;
@@ -1617,12 +1623,12 @@ export default function Game({ variant = "full" }) {
   const estimateElapsedAllSeconds = () => {
     if (!game?.period || !game?.gameClock) return null;
     const period = Number(game.period) || 1;
-    const currentLength = period <= 4 ? 12 * 60 : 5 * 60;
+    const currentLength = period <= 4 ? regulationPeriodSeconds : 5 * 60;
     const remaining = parseIsoClock(game.gameClock);
     const elapsedCurrent = Math.max(0, currentLength - remaining);
     let completed = 0;
     for (let p = 1; p < period; p += 1) {
-      completed += p <= 4 ? 12 * 60 : 5 * 60;
+      completed += p <= 4 ? regulationPeriodSeconds : 5 * 60;
     }
     return completed + elapsedCurrent;
   };
@@ -1640,16 +1646,16 @@ export default function Game({ variant = "full" }) {
       if (total > 0) return total;
     }
     const defaultSeconds = {
-      "q1": 12 * 60,
-      "q2": 12 * 60,
-      "q3": 12 * 60,
-      "q4": 12 * 60,
-      "q1-q3": 36 * 60,
-      "first-half": 24 * 60,
-      "second-half": 24 * 60,
-      "all": 48 * 60,
+      "q1": regulationPeriodSeconds,
+      "q2": regulationPeriodSeconds,
+      "q3": regulationPeriodSeconds,
+      "q4": regulationPeriodSeconds,
+      "q1-q3": regulationPeriodSeconds * 3,
+      "first-half": regulationPeriodSeconds * 2,
+      "second-half": regulationPeriodSeconds * 2,
+      "all": regulationGameSeconds,
     };
-    return defaultSeconds[segment] || 48 * 60;
+    return defaultSeconds[segment] || regulationGameSeconds;
   })();
 
   const killStats = segmentSeconds === 0
@@ -1657,7 +1663,7 @@ export default function Game({ variant = "full" }) {
     : computeKills(game.playByPlayActions || [], segment, homeTeam.teamId, awayTeam.teamId);
 
   const paceFrom = (possessionsCount) =>
-    segmentSeconds ? (possessionsCount * 2880) / segmentSeconds : 0;
+    segmentSeconds ? (possessionsCount * regulationGameSeconds) / segmentSeconds : 0;
 
   const basePace = useOfficialPossessions
     ? (officialAwayPossessions + officialHomePossessions) / 2
@@ -1718,25 +1724,12 @@ export default function Game({ variant = "full" }) {
     homeFoulInfo.inPenalty ? foulLimit : homeFoulInfo.count,
     foulLimit
   );
-  const mandatoryTimeoutTeam = (() => {
-    if (!homeTeam?.teamId || !awayTeam?.teamId) return null;
-    const actions = (game.playByPlayActions || [])
-      .filter((action) => action.actionType === "timeout" && action.period === currentPeriod)
-      .slice()
-      .sort((a, b) => (a.actionNumber || 0) - (b.actionNumber || 0));
-    if (!actions.length) return "home";
-    if (actions.length >= 2) return null;
-    const firstTeamId = actions[0]?.teamId;
-    if (firstTeamId === homeTeam.teamId) return "away";
-    if (firstTeamId === awayTeam.teamId) return "home";
-    return "home";
-  })();
   const lockIcon = isLocked ? "🔒" : "🔓";
-  const renderTimeouts = (remaining, showMandatory) => (
+  const renderTimeouts = (remaining) => (
     <div className={styles.metaBlock}>
       <div className={styles.metaLabel}>Timeouts</div>
       <div className={styles.timeoutsNumbers}>
-        {Array.from({ length: 7 }, (_, index) => {
+        {Array.from({ length: 5 }, (_, index) => {
           const value = index + 1;
           const inactive = remaining != null && value > remaining;
           return (
@@ -1749,16 +1742,11 @@ export default function Game({ variant = "full" }) {
           );
         })}
       </div>
-      <div className={styles.mandatoryLine}>
-        {isLive && showMandatory ? (
-          <span className={styles.mandatoryActive}>NEXT MANDATORY</span>
-        ) : null}
-      </div>
       <div className={styles.metaSpacer} />
     </div>
   );
-  const awayTimeoutsRemaining = isPregame ? 7 : timeouts?.away;
-  const homeTimeoutsRemaining = isPregame ? 7 : timeouts?.home;
+  const awayTimeoutsRemaining = isPregame ? 5 : timeouts?.away;
+  const homeTimeoutsRemaining = isPregame ? 5 : timeouts?.home;
   const renderFouls = (count) => (
     <div className={styles.metaBlock}>
       <div className={styles.metaLabel}>Fouls</div>
@@ -1843,7 +1831,7 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(awayTimeoutsRemaining, mandatoryTimeoutTeam === "away")}
+                {renderTimeouts(awayTimeoutsRemaining)}
               </div>
           )}
           <div className={styles.teamMetaRow}>
@@ -1929,7 +1917,7 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(homeTimeoutsRemaining, mandatoryTimeoutTeam === "home")}
+                {renderTimeouts(homeTimeoutsRemaining)}
               </div>
           )}
           <div className={styles.teamMetaRow}>
@@ -2147,7 +2135,7 @@ export default function Game({ variant = "full" }) {
                       setNoteForm((prev) => ({ ...prev, minutes: event.target.value }))
                     }
                   >
-                    {NOTE_MINUTE_OPTIONS.map((option) => (
+                    {noteMinuteOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
