@@ -1695,6 +1695,8 @@ export default function Game({ variant = "full" }) {
     const officialPaceScaleSeconds = 48 * 60;
     return segmentSeconds ? (possessionsCount * officialPaceScaleSeconds) / segmentSeconds : 0;
   };
+  const pace40From = (possessionsCount) =>
+    segmentSeconds ? (possessionsCount * regulationGameSeconds) / segmentSeconds : 0;
 
   const basePace = useOfficialPossessions
     ? (officialAwayPossessions + officialHomePossessions) / 2
@@ -1711,7 +1713,9 @@ export default function Game({ variant = "full" }) {
       ? (teamStats.away.pace + teamStats.home.pace) / 2
       : null;
   const paceValue = Number.isFinite(officialPace) ? officialPace : paceFrom(basePace);
+  const pace40Value = pace40From(basePace);
   const displayPaceValue = isPregame ? 0 : paceValue;
+  const displayPace40Value = isPregame ? 0 : pace40Value;
 
   const currentPeriod = game.period || 1;
   const foulLimit = 5;
@@ -1915,7 +1919,12 @@ export default function Game({ variant = "full" }) {
             </>
           )}
           {showExtras && <div className={styles.statLabel}>CHANCES</div>}
-          {showExtras && <div className={styles.paceRow}>PACE: {displayPaceValue.toFixed(1)}</div>}
+          {showExtras && (
+            <div className={styles.paceGroup}>
+              <div className={styles.paceRow}>PACE: {displayPaceValue.toFixed(1)}</div>
+              <div className={styles.paceSubRow}>PACE/40: {displayPace40Value.toFixed(1)}</div>
+            </div>
+          )}
           <div className={`${styles.status} ${isLive ? styles.statusLive : ""}`}>
             {status || game.gameStatusText}
           </div>
