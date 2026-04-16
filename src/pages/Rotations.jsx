@@ -25,7 +25,7 @@ const ROTATIONS_SCOPE_GAME = "game";
 const ROTATIONS_SCOPE_SAVED_LINEUPS = "saved_lineups";
 const FINAL_VERSION_ID = "final";
 const QUARTERS = [1, 2, 3, 4];
-const MINUTES = Array.from({ length: 12 }, (_, index) => 12 - index);
+const MINUTES = Array.from({ length: 10 }, (_, index) => 10 - index);
 const POSITION_COLUMNS = [1, 2, 3, 4, 5];
 const TOTAL_PER_QUARTER = MINUTES.length * POSITION_COLUMNS.length;
 const MAX_LINEUP_HISTORY = 100;
@@ -2476,65 +2476,77 @@ export default function Rotations() {
       pdfWindow.document.title = "Generating Rotations PDF...";
       pdfWindow.document.body.innerHTML = "<p style=\"font-family: sans-serif; padding: 16px;\">Generating PDF...</p>";
     }
-    const [{ default: fontkit }, { PDFDocument, rgb }] = await Promise.all([
-      import("@pdf-lib/fontkit"),
-      import("pdf-lib"),
-    ]);
-    const pdfColors = buildPdfColors(rgb);
-    const fontUrl = new URL("../assets/fonts/DINalt.ttf", import.meta.url).href;
-    const logoUrl = teamLogoUrl("1611661322", "wnba");
-    const [fontResponse, logoResponse] = await Promise.all([
-      fetch(fontUrl),
-      fetch(logoUrl),
-    ]);
-    const [fontBytes, logoBytes] = await Promise.all([
-      fontResponse.arrayBuffer(),
-      logoResponse.arrayBuffer(),
-    ]);
+    try {
+      const [{ default: fontkit }, { PDFDocument, rgb }] = await Promise.all([
+        import("@pdf-lib/fontkit"),
+        import("pdf-lib"),
+      ]);
+      const pdfColors = buildPdfColors(rgb);
+      const fontUrl = new URL("../assets/fonts/DINalt.ttf", import.meta.url).href;
+      const fontResponse = await fetch(fontUrl);
+      const fontBytes = await fontResponse.arrayBuffer();
 
-    const pdfDoc = await PDFDocument.create();
-    pdfDoc.registerFontkit(fontkit);
-    const pdfFont = await pdfDoc.embedFont(fontBytes, { subset: true });
-    const logoImage = await pdfDoc.embedPng(logoBytes);
+      const pdfDoc = await PDFDocument.create();
+      pdfDoc.registerFontkit(fontkit);
+      const pdfFont = await pdfDoc.embedFont(fontBytes, { subset: true });
 
-    const pageOne = pdfDoc.addPage([612, 792]);
-    const pageTwo = pdfDoc.addPage([612, 792]);
-
-    drawRotationsPdfPage(pageOne, {
-      headerLine: exportHeaderLine,
-      depthChart,
-      lineups,
-      logoImage,
-      font: pdfFont,
-      side: "left",
-      hideNamesOnDuplicateRows: versionDisplayOptions.hideNamesOnDuplicateRows,
-      pdfColors,
-    });
-    drawRotationsPdfPage(pageTwo, {
-      headerLine: exportHeaderLine,
-      depthChart,
-      lineups,
-      logoImage,
-      font: pdfFont,
-      side: "right",
-      hideNamesOnDuplicateRows: versionDisplayOptions.hideNamesOnDuplicateRows,
-      pdfColors,
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const blobUrl = window.URL.createObjectURL(blob);
-    if (pdfWindow) {
-      pdfWindow.location.href = blobUrl;
+      let logoImage = null;
       try {
-        pdfWindow.opener = null;
+        const logoUrl = new URL("../assets/WWizards_Primary_Icon.png", import.meta.url).href;
+        const logoResponse = await fetch(logoUrl);
+        if (logoResponse.ok) {
+          const logoBytes = await logoResponse.arrayBuffer();
+          logoImage = await pdfDoc.embedPng(logoBytes);
+        }
       } catch {
-        // Ignore browsers that do not allow resetting opener.
+        logoImage = null;
       }
-    } else {
-      window.open(blobUrl, "_blank", "noopener,noreferrer");
+
+      const pageOne = pdfDoc.addPage([612, 792]);
+      const pageTwo = pdfDoc.addPage([612, 792]);
+
+      drawRotationsPdfPage(pageOne, {
+        headerLine: exportHeaderLine,
+        depthChart,
+        lineups,
+        logoImage,
+        font: pdfFont,
+        side: "left",
+        hideNamesOnDuplicateRows: versionDisplayOptions.hideNamesOnDuplicateRows,
+        pdfColors,
+      });
+      drawRotationsPdfPage(pageTwo, {
+        headerLine: exportHeaderLine,
+        depthChart,
+        lineups,
+        logoImage,
+        font: pdfFont,
+        side: "right",
+        hideNamesOnDuplicateRows: versionDisplayOptions.hideNamesOnDuplicateRows,
+        pdfColors,
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const blobUrl = window.URL.createObjectURL(blob);
+      if (pdfWindow) {
+        pdfWindow.location.href = blobUrl;
+        try {
+          pdfWindow.opener = null;
+        } catch {
+          // Ignore browsers that do not allow resetting opener.
+        }
+      } else {
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+      }
+      window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+    } catch (error) {
+      if (pdfWindow?.document) {
+        pdfWindow.document.title = "Rotations PDF Export Failed";
+        pdfWindow.document.body.innerHTML = `<p style="font-family: sans-serif; padding: 16px;">Unable to generate PDF: ${String(error?.message || error || "Unknown error")}</p>`;
+      }
+      throw error;
     }
-    window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
   };
 
   const toggleSection = (key) => {
