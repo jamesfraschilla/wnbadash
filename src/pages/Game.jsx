@@ -1208,11 +1208,11 @@ export default function Game({ variant = "full" }) {
         const defensivePoss = safeStats.possessionsAgainst || 0;
         const computedOrt = offensivePoss ? (safeStats.pointsFor / offensivePoss) * 100 : null;
         const computedDrt = defensivePoss ? (safeStats.pointsAgainst / defensivePoss) * 100 : null;
-        const ortg = segment === "all" && Number.isFinite(player.offensiveRating)
-          ? player.offensiveRating
+        const ortg = segment === "all" && Number.isFinite(player.offensiveRating ?? player.ortg)
+          ? (player.offensiveRating ?? player.ortg)
           : computedOrt;
-        const drtg = segment === "all" && Number.isFinite(player.defensiveRating)
-          ? player.defensiveRating
+        const drtg = segment === "all" && Number.isFinite(player.defensiveRating ?? player.drtg)
+          ? (player.defensiveRating ?? player.drtg)
           : computedDrt;
         return {
           ...base,
@@ -1368,75 +1368,65 @@ export default function Game({ variant = "full" }) {
   }
 
   const useOfficialRatings =
+    segment === "all" &&
+    teamStats?.away?.hasOfficialAdvanced &&
+    teamStats?.home?.hasOfficialAdvanced &&
     Number.isFinite(teamStats?.away?.offensiveRating) &&
     Number.isFinite(teamStats?.home?.offensiveRating);
-
-  const ortgAway = useOfficialRatings
-    ? Math.round(teamStats.away.offensiveRating)
-    : Math.round(
-      (advancedAwayTotals.points || 0) /
-        Math.max(possessions(advancedAwayTotals, advancedHomeTotals), 1) *
-        100
-    );
-  const ortgHome = useOfficialRatings
-    ? Math.round(teamStats.home.offensiveRating)
-    : Math.round(
-      (advancedHomeTotals.points || 0) /
-        Math.max(possessions(advancedHomeTotals, advancedAwayTotals), 1) *
-        100
-    );
-  const useOfficialDefensive =
-    Number.isFinite(teamStats?.away?.defensiveRating) &&
-    Number.isFinite(teamStats?.home?.defensiveRating);
-  const drtgAway = useOfficialDefensive
-    ? Math.round(teamStats.away.defensiveRating)
-    : Math.round(
-      (advancedHomeTotals.points || 0) /
-        Math.max(possessions(advancedHomeTotals, advancedAwayTotals), 1) *
-        100
-    );
-  const drtgHome = useOfficialDefensive
-    ? Math.round(teamStats.home.defensiveRating)
-    : Math.round(
-      (advancedAwayTotals.points || 0) /
-        Math.max(possessions(advancedAwayTotals, advancedHomeTotals), 1) *
-        100
-    );
-
-  const netAway = useOfficialRatings
-    ? Math.round(teamStats.away.netRating)
-    : ortgAway -
-      drtgAway;
-  const netHome = useOfficialRatings
-    ? Math.round(teamStats.home.netRating)
-    : ortgHome -
-      drtgHome;
 
   const officialAwayPossessions = teamStats?.away?.possessions;
   const officialHomePossessions = teamStats?.home?.possessions;
   const useOfficialPossessions =
+    segment === "all" &&
+    teamStats?.away?.hasOfficialAdvanced &&
+    teamStats?.home?.hasOfficialAdvanced &&
     Number.isFinite(officialAwayPossessions) &&
     Number.isFinite(officialHomePossessions);
 
+  const fallbackAwayPossessions = hasPossessionCounts
+    ? possessionCounts.awayPossessions
+    : Math.max(Math.round(possessions(advancedAwayTotals, advancedHomeTotals)), 1);
+  const fallbackHomePossessions = hasPossessionCounts
+    ? possessionCounts.homePossessions
+    : Math.max(Math.round(possessions(advancedHomeTotals, advancedAwayTotals)), 1);
+
   const awayPossessions = Math.max(
-    useOfficialPossessions
-      ? officialAwayPossessions
-      : hasPossessionCounts
-        ? possessionCounts.awayPossessions
-        : possessions(advancedAwayTotals, advancedHomeTotals),
+    useOfficialPossessions ? Math.round(officialAwayPossessions) : fallbackAwayPossessions,
     1
   );
   const homePossessions = Math.max(
-    useOfficialPossessions
-      ? officialHomePossessions
-      : hasPossessionCounts
-        ? possessionCounts.homePossessions
-        : possessions(advancedHomeTotals, advancedAwayTotals),
+    useOfficialPossessions ? Math.round(officialHomePossessions) : fallbackHomePossessions,
     1
   );
+
+  const ortgAway = useOfficialRatings
+    ? Math.round(teamStats.away.offensiveRating)
+    : Math.round(((advancedAwayTotals.points || 0) / awayPossessions) * 100);
+  const ortgHome = useOfficialRatings
+    ? Math.round(teamStats.home.offensiveRating)
+    : Math.round(((advancedHomeTotals.points || 0) / homePossessions) * 100);
+  const useOfficialDefensive =
+    segment === "all" &&
+    teamStats?.away?.hasOfficialAdvanced &&
+    teamStats?.home?.hasOfficialAdvanced &&
+    Number.isFinite(teamStats?.away?.defensiveRating) &&
+    Number.isFinite(teamStats?.home?.defensiveRating);
+  const drtgAway = useOfficialDefensive
+    ? Math.round(teamStats.away.defensiveRating)
+    : Math.round(((advancedHomeTotals.points || 0) / homePossessions) * 100);
+  const drtgHome = useOfficialDefensive
+    ? Math.round(teamStats.home.defensiveRating)
+    : Math.round(((advancedAwayTotals.points || 0) / awayPossessions) * 100);
+
+  const netAway = useOfficialRatings && Number.isFinite(teamStats?.away?.netRating)
+    ? Math.round(teamStats.away.netRating)
+    : ortgAway - drtgAway;
+  const netHome = useOfficialRatings && Number.isFinite(teamStats?.home?.netRating)
+    ? Math.round(teamStats.home.netRating)
+    : ortgHome - drtgHome;
   const formatChancesValue = (value) => {
     if (!Number.isFinite(value)) return "0";
-    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    return String(Math.round(value));
   };
   const awayChances = awayPossessions + (advancedAwayTotals.reboundsOffensive || 0);
   const homeChances = homePossessions + (advancedHomeTotals.reboundsOffensive || 0);
@@ -1708,8 +1698,12 @@ export default function Game({ variant = "full" }) {
 
   const officialPace =
     segment === "all" &&
+    teamStats?.away?.hasOfficialAdvanced &&
+    teamStats?.home?.hasOfficialAdvanced &&
     Number.isFinite(teamStats?.away?.pace) &&
-    Number.isFinite(teamStats?.home?.pace)
+    Number.isFinite(teamStats?.home?.pace) &&
+    teamStats.away.pace > 0 &&
+    teamStats.home.pace > 0
       ? (teamStats.away.pace + teamStats.home.pace) / 2
       : null;
   const paceValue = Number.isFinite(officialPace) ? officialPace : paceFrom(basePace);

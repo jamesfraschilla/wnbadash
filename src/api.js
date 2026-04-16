@@ -52,6 +52,14 @@ function numberValue(...values) {
   return 0;
 }
 
+function optionalNumberValue(...values) {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
 function stringValue(...values) {
   for (const value of values) {
     const text = String(value ?? "").trim();
@@ -283,22 +291,22 @@ function buildWnbaAdvancedMaps(advancedBoxScorePayload) {
     );
     if (!personId) return;
     players.set(personId, {
-      offensiveRating: numberValue(entry?.offensiveRating, entry?.OFF_RATING),
-      defensiveRating: numberValue(entry?.defensiveRating, entry?.DEF_RATING),
-      netRating: numberValue(entry?.netRating, entry?.NET_RATING),
-      assistPercentage: numberValue(entry?.assistPercentage, entry?.AST_PCT),
-      assistToTurnover: numberValue(entry?.assistToTurnover, entry?.AST_TO),
-      assistRatio: numberValue(entry?.assistRatio, entry?.AST_RATIO),
-      offensiveReboundPercentage: numberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
-      defensiveReboundPercentage: numberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
-      reboundPercentage: numberValue(entry?.reboundPercentage, entry?.REB_PCT),
-      turnoverRatio: numberValue(entry?.turnoverRatio, entry?.TM_TOV_PCT),
-      effectiveFieldGoalPercentage: numberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
-      trueShootingPercentage: numberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
-      usagePercentage: numberValue(entry?.usagePercentage, entry?.USG_PCT),
-      pace: numberValue(entry?.pace, entry?.PACE),
-      possessions: numberValue(entry?.possessions, entry?.POSS),
-      pie: numberValue(entry?.PIE, entry?.pie),
+      offensiveRating: optionalNumberValue(entry?.offensiveRating, entry?.OFF_RATING),
+      defensiveRating: optionalNumberValue(entry?.defensiveRating, entry?.DEF_RATING),
+      netRating: optionalNumberValue(entry?.netRating, entry?.NET_RATING),
+      assistPercentage: optionalNumberValue(entry?.assistPercentage, entry?.AST_PCT),
+      assistToTurnover: optionalNumberValue(entry?.assistToTurnover, entry?.AST_TO),
+      assistRatio: optionalNumberValue(entry?.assistRatio, entry?.AST_RATIO),
+      offensiveReboundPercentage: optionalNumberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
+      defensiveReboundPercentage: optionalNumberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
+      reboundPercentage: optionalNumberValue(entry?.reboundPercentage, entry?.REB_PCT),
+      turnoverRatio: optionalNumberValue(entry?.turnoverRatio, entry?.TM_TOV_PCT),
+      effectiveFieldGoalPercentage: optionalNumberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
+      trueShootingPercentage: optionalNumberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
+      usagePercentage: optionalNumberValue(entry?.usagePercentage, entry?.USG_PCT),
+      pace: optionalNumberValue(entry?.pace, entry?.PACE),
+      possessions: optionalNumberValue(entry?.possessions, entry?.POSS),
+      pie: optionalNumberValue(entry?.PIE, entry?.pie),
     });
   });
 
@@ -311,23 +319,23 @@ function buildWnbaAdvancedMaps(advancedBoxScorePayload) {
     );
     if (!teamId) return;
     teams.set(teamId, {
-      offensiveRating: numberValue(entry?.offensiveRating, entry?.OFF_RATING),
-      defensiveRating: numberValue(entry?.defensiveRating, entry?.DEF_RATING),
-      netRating: numberValue(entry?.netRating, entry?.NET_RATING),
-      assistPercentage: numberValue(entry?.assistPercentage, entry?.AST_PCT),
-      assistToTurnover: numberValue(entry?.assistToTurnover, entry?.AST_TO),
-      assistRatio: numberValue(entry?.assistRatio, entry?.AST_RATIO),
-      offensiveReboundPercentage: numberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
-      defensiveReboundPercentage: numberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
-      reboundPercentage: numberValue(entry?.reboundPercentage, entry?.REB_PCT),
-      estimatedTeamTurnoverPercentage: numberValue(entry?.estimatedTeamTurnoverPercentage, entry?.TM_TOV_PCT),
-      turnoverRatio: numberValue(entry?.turnoverRatio, entry?.TOV_PCT),
-      effectiveFieldGoalPercentage: numberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
-      trueShootingPercentage: numberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
-      usagePercentage: numberValue(entry?.usagePercentage, entry?.USG_PCT),
-      pace: numberValue(entry?.pace, entry?.PACE),
-      possessions: numberValue(entry?.possessions, entry?.POSS),
-      pie: numberValue(entry?.PIE, entry?.pie),
+      offensiveRating: optionalNumberValue(entry?.offensiveRating, entry?.OFF_RATING),
+      defensiveRating: optionalNumberValue(entry?.defensiveRating, entry?.DEF_RATING),
+      netRating: optionalNumberValue(entry?.netRating, entry?.NET_RATING),
+      assistPercentage: optionalNumberValue(entry?.assistPercentage, entry?.AST_PCT),
+      assistToTurnover: optionalNumberValue(entry?.assistToTurnover, entry?.AST_TO),
+      assistRatio: optionalNumberValue(entry?.assistRatio, entry?.AST_RATIO),
+      offensiveReboundPercentage: optionalNumberValue(entry?.offensiveReboundPercentage, entry?.OREB_PCT),
+      defensiveReboundPercentage: optionalNumberValue(entry?.defensiveReboundPercentage, entry?.DREB_PCT),
+      reboundPercentage: optionalNumberValue(entry?.reboundPercentage, entry?.REB_PCT),
+      estimatedTeamTurnoverPercentage: optionalNumberValue(entry?.estimatedTeamTurnoverPercentage, entry?.TM_TOV_PCT),
+      turnoverRatio: optionalNumberValue(entry?.turnoverRatio, entry?.TOV_PCT),
+      effectiveFieldGoalPercentage: optionalNumberValue(entry?.effectiveFieldGoalPercentage, entry?.EFG_PCT),
+      trueShootingPercentage: optionalNumberValue(entry?.trueShootingPercentage, entry?.TS_PCT),
+      usagePercentage: optionalNumberValue(entry?.usagePercentage, entry?.USG_PCT),
+      pace: optionalNumberValue(entry?.pace, entry?.PACE),
+      possessions: optionalNumberValue(entry?.possessions, entry?.POSS),
+      pie: optionalNumberValue(entry?.PIE, entry?.pie),
     });
   });
 
@@ -347,36 +355,43 @@ function computeTeamAdvancedStats(totals, opponentTotals, officialAdvanced = {})
     numberValue(opponentTotals?.reboundsOffensive) +
     numberValue(opponentTotals?.turnovers)
   );
-  const possessions = numberValue(officialAdvanced?.possessions, computedPossessions);
+  const hasOfficialAdvanced =
+    optionalNumberValue(
+      officialAdvanced?.offensiveRating,
+      officialAdvanced?.defensiveRating,
+      officialAdvanced?.pace,
+      officialAdvanced?.possessions
+    ) != null;
+  const officialPossessions = optionalNumberValue(officialAdvanced?.possessions);
+  const officialOffensiveRating = optionalNumberValue(officialAdvanced?.offensiveRating);
+  const officialDefensiveRating = optionalNumberValue(officialAdvanced?.defensiveRating);
+  const officialNetRating = optionalNumberValue(officialAdvanced?.netRating);
+  const officialPace = optionalNumberValue(officialAdvanced?.pace);
+  const possessions = officialPossessions ?? computedPossessions;
   const opponentPossessions = numberValue(computedOpponentPossessions);
-  const offensiveRating = numberValue(
-    officialAdvanced?.offensiveRating,
-    possessions ? (100 * numberValue(totals?.points) / possessions) : 0
-  );
-  const defensiveRating = numberValue(
-    officialAdvanced?.defensiveRating,
-    opponentPossessions ? (100 * numberValue(opponentTotals?.points) / opponentPossessions) : 0
-  );
+  const offensiveRating = officialOffensiveRating ?? (possessions ? (100 * numberValue(totals?.points) / possessions) : 0);
+  const defensiveRating = officialDefensiveRating ?? (opponentPossessions ? (100 * numberValue(opponentTotals?.points) / opponentPossessions) : 0);
   return {
     possessions,
     offensiveRating,
     defensiveRating,
-    netRating: numberValue(officialAdvanced?.netRating, offensiveRating - defensiveRating),
-    pace: numberValue(officialAdvanced?.pace),
-    assistPercentage: numberValue(officialAdvanced?.assistPercentage),
-    assistToTurnover: numberValue(officialAdvanced?.assistToTurnover),
-    assistRatio: numberValue(officialAdvanced?.assistRatio),
-    offensiveReboundPercentage: numberValue(officialAdvanced?.offensiveReboundPercentage),
-    defensiveReboundPercentage: numberValue(officialAdvanced?.defensiveReboundPercentage),
-    reboundPercentage: numberValue(officialAdvanced?.reboundPercentage),
-    turnoverRatio: numberValue(
+    netRating: officialNetRating ?? (offensiveRating - defensiveRating),
+    pace: officialPace,
+    hasOfficialAdvanced,
+    assistPercentage: optionalNumberValue(officialAdvanced?.assistPercentage),
+    assistToTurnover: optionalNumberValue(officialAdvanced?.assistToTurnover),
+    assistRatio: optionalNumberValue(officialAdvanced?.assistRatio),
+    offensiveReboundPercentage: optionalNumberValue(officialAdvanced?.offensiveReboundPercentage),
+    defensiveReboundPercentage: optionalNumberValue(officialAdvanced?.defensiveReboundPercentage),
+    reboundPercentage: optionalNumberValue(officialAdvanced?.reboundPercentage),
+    turnoverRatio: optionalNumberValue(
       officialAdvanced?.turnoverRatio,
       officialAdvanced?.estimatedTeamTurnoverPercentage
     ),
-    effectiveFieldGoalPercentage: numberValue(officialAdvanced?.effectiveFieldGoalPercentage),
-    trueShootingPercentage: numberValue(officialAdvanced?.trueShootingPercentage),
-    usagePercentage: numberValue(officialAdvanced?.usagePercentage),
-    pie: numberValue(officialAdvanced?.pie),
+    effectiveFieldGoalPercentage: optionalNumberValue(officialAdvanced?.effectiveFieldGoalPercentage),
+    trueShootingPercentage: optionalNumberValue(officialAdvanced?.trueShootingPercentage),
+    usagePercentage: optionalNumberValue(officialAdvanced?.usagePercentage),
+    pie: optionalNumberValue(officialAdvanced?.pie),
     advancedStats: {
       deflections: numberValue(totals?.deflections),
     },
@@ -395,8 +410,8 @@ function normalizeWnbaLiveTeam(team, shotSplits, advancedMaps = { players: new M
     const advanced = advancedMaps.players.get(personId) || {};
     const firstName = stringValue(name?.firstName, player?.firstName, player?.first_name);
     const familyName = stringValue(name?.familyName, player?.familyName, player?.family_name);
-    const offensiveRating = numberValue(stats?.offensiveRating, stats?.offensive_rating, advanced.offensiveRating);
-    const defensiveRating = numberValue(stats?.defensiveRating, stats?.defensive_rating, advanced.defensiveRating);
+    const offensiveRating = optionalNumberValue(stats?.offensiveRating, stats?.offensive_rating, advanced.offensiveRating);
+    const defensiveRating = optionalNumberValue(stats?.defensiveRating, stats?.defensive_rating, advanced.defensiveRating);
     return {
       personId,
       firstName,
@@ -429,20 +444,20 @@ function normalizeWnbaLiveTeam(team, shotSplits, advancedMaps = { players: new M
       freeThrowsAttempted: numberValue(stats?.freeThrowsAttempted, stats?.free_throws_attempted),
       offensiveRating,
       defensiveRating,
-      netRating: numberValue(advanced.netRating),
-      assistPercentage: numberValue(advanced.assistPercentage),
-      assistToTurnover: numberValue(advanced.assistToTurnover),
-      assistRatio: numberValue(advanced.assistRatio),
-      offensiveReboundPercentage: numberValue(advanced.offensiveReboundPercentage),
-      defensiveReboundPercentage: numberValue(advanced.defensiveReboundPercentage),
-      reboundPercentage: numberValue(advanced.reboundPercentage),
-      turnoverRatio: numberValue(advanced.turnoverRatio),
-      effectiveFieldGoalPercentage: numberValue(advanced.effectiveFieldGoalPercentage),
-      trueShootingPercentage: numberValue(advanced.trueShootingPercentage),
-      usagePercentage: numberValue(advanced.usagePercentage),
-      pace: numberValue(advanced.pace),
-      possessions: numberValue(advanced.possessions),
-      pie: numberValue(advanced.pie),
+      netRating: optionalNumberValue(advanced.netRating),
+      assistPercentage: optionalNumberValue(advanced.assistPercentage),
+      assistToTurnover: optionalNumberValue(advanced.assistToTurnover),
+      assistRatio: optionalNumberValue(advanced.assistRatio),
+      offensiveReboundPercentage: optionalNumberValue(advanced.offensiveReboundPercentage),
+      defensiveReboundPercentage: optionalNumberValue(advanced.defensiveReboundPercentage),
+      reboundPercentage: optionalNumberValue(advanced.reboundPercentage),
+      turnoverRatio: optionalNumberValue(advanced.turnoverRatio),
+      effectiveFieldGoalPercentage: optionalNumberValue(advanced.effectiveFieldGoalPercentage),
+      trueShootingPercentage: optionalNumberValue(advanced.trueShootingPercentage),
+      usagePercentage: optionalNumberValue(advanced.usagePercentage),
+      pace: optionalNumberValue(advanced.pace),
+      possessions: optionalNumberValue(advanced.possessions),
+      pie: optionalNumberValue(advanced.pie),
       ortg: offensiveRating,
       drtg: defensiveRating,
       rimFieldGoalsMade: numberValue(stats?.rimFieldGoalsMade, split.rimFieldGoalsMade),
