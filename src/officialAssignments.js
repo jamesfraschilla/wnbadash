@@ -166,8 +166,23 @@ export function isAlternateOfficial(official) {
   return getOfficialSortMeta(official).isAlternate;
 }
 
+function filterPrimaryOfficials(officials) {
+  const entries = [...(officials || [])].map((official, index) => ({
+    official,
+    index,
+    isAlternate: isAlternateOfficial(official),
+  }));
+  const primary = entries.filter(({ isAlternate }) => !isAlternate);
+
+  if (!entries.some(({ isAlternate }) => isAlternate) && entries.length === 4) {
+    return entries.slice(0, 3).map(({ official }) => official);
+  }
+
+  return primary.map(({ official }) => official);
+}
+
 export function sortOfficialsByRole(officials) {
-  const primary = [...(officials || [])]
+  const primary = filterPrimaryOfficials(officials)
     .map((official, index) => ({
       official,
       index,
@@ -203,7 +218,7 @@ export function sortOfficialsByRole(officials) {
 }
 
 export function orderOfficials(officials, publishedOrder = null) {
-  const primary = [...(officials || [])].filter((official) => !isAlternateOfficial(official));
+  const primary = filterPrimaryOfficials(officials);
   if (!publishedOrder?.length) return primary;
 
   const rankMap = new Map(

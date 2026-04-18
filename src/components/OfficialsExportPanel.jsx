@@ -144,7 +144,9 @@ function buildOfficialsData(officials, publishedOrder) {
     .map((official) => official.fullName)
     .filter(Boolean);
 
-  return { primary, alternates };
+  const hideAlternateFooter = rawOfficials.length === 4 && primary.length === 3;
+
+  return { primary, alternates: hideAlternateFooter ? [] : alternates };
 }
 
 function getInitials(fullName) {
