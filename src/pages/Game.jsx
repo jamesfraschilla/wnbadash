@@ -330,6 +330,21 @@ const buildChallengeCircles = (challenges) => {
   return circles;
 };
 
+function hasUsedResetTimeout(actions, teamId, currentPeriod) {
+  if (!teamId) return false;
+
+  const overtimePhase = Number(currentPeriod) > 4;
+  return (actions || []).some((action) => {
+    if (String(action?.actionType || "").toLowerCase() !== "timeout") return false;
+    if (String(action?.subType || "").toLowerCase() !== "reset") return false;
+    if (String(action?.teamId || "") !== String(teamId)) return false;
+
+    const actionPeriod = Number(action?.period || 0);
+    if (overtimePhase) return actionPeriod > 4;
+    return actionPeriod > 0 && actionPeriod <= 4;
+  });
+}
+
 const getSegmentSnapshotBounds = (segment, snapshots, currentSnapshot, currentPeriod) => {
   const snapshotEntries = snapshots || [];
   const snapshotByKey = new Map(snapshotEntries.map((s) => [s.key, s]));
@@ -1770,7 +1785,7 @@ export default function Game({ variant = "full" }) {
     foulLimit
   );
   const lockIcon = isLocked ? "🔒" : "🔓";
-  const renderTimeouts = (remaining) => (
+  const renderTimeouts = (remaining, showReset, resetUsed) => (
     <div className={styles.metaBlock}>
       <div className={styles.metaLabel}>Timeouts</div>
       <div className={styles.timeoutsNumbers}>
@@ -1787,11 +1802,19 @@ export default function Game({ variant = "full" }) {
           );
         })}
       </div>
+      <div className={styles.resetLine}>
+        {showReset ? (
+          <span className={`${styles.resetLabel} ${resetUsed ? styles.resetUsed : ""}`}>RESET</span>
+        ) : null}
+      </div>
       <div className={styles.metaSpacer} />
     </div>
   );
   const awayTimeoutsRemaining = isPregame ? 5 : timeouts?.away;
   const homeTimeoutsRemaining = isPregame ? 5 : timeouts?.home;
+  const isGLeagueGame = awayLeague === "gleague" || homeLeague === "gleague";
+  const awayResetUsed = hasUsedResetTimeout(game?.playByPlayActions || [], awayTeamId, game?.period);
+  const homeResetUsed = hasUsedResetTimeout(game?.playByPlayActions || [], homeTeamId, game?.period);
   const renderFouls = (count) => (
     <div className={styles.metaBlock}>
       <div className={styles.metaLabel}>Fouls</div>
@@ -1884,17 +1907,17 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(awayTimeoutsRemaining)}
+                {renderTimeouts(awayTimeoutsRemaining, isGLeagueGame, awayResetUsed)}
               </div>
           )}
-          <div className={styles.teamMetaRow}>
-            {renderFouls(awayFoulsDisplay)}
-          </div>
           {(challenges || isPregame) && (
             <div className={styles.teamMetaRow}>
               {renderChallenges(awayChallenges)}
             </div>
           )}
+          <div className={styles.teamMetaRow}>
+            {renderFouls(awayFoulsDisplay)}
+          </div>
         </div>
 
           <div className={`${styles.teamStatsColumn} ${styles.awayStatsColumn}`}>
@@ -1975,17 +1998,17 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(homeTimeoutsRemaining)}
+                {renderTimeouts(homeTimeoutsRemaining, isGLeagueGame, homeResetUsed)}
               </div>
           )}
-          <div className={styles.teamMetaRow}>
-            {renderFouls(homeFoulsDisplay)}
-          </div>
           {(challenges || isPregame) && (
             <div className={styles.teamMetaRow}>
               {renderChallenges(homeChallenges)}
             </div>
           )}
+          <div className={styles.teamMetaRow}>
+            {renderFouls(homeFoulsDisplay)}
+          </div>
         </div>
       </section>
 

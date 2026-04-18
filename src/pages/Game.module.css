@@ -499,6 +499,28 @@ html[data-theme="dark"] .pbpWheel {
   font-weight: 700;
 }
 
+.resetLine {
+  min-height: 14px;
+  margin-top: 2px;
+}
+
+.resetLabel {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #ffffff;
+  border: 1px solid #ffffff;
+  border-radius: 2px;
+  padding: 0 4px;
+}
+
+.resetUsed {
+  color: var(--negative);
+  text-decoration: line-through;
+}
+
 @media (max-width: 900px) {
   .teamLogoColumn {
     min-width: auto;
