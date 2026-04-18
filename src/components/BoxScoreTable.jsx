@@ -34,6 +34,12 @@ function formatShootingPercent(made, attempted) {
   return `${((safeMade / safeAttempted) * 100).toFixed(1)}%`;
 }
 
+function formatShootingLine(made, attempted) {
+  const safeMade = Number(made) || 0;
+  const safeAttempted = Number(attempted) || 0;
+  return `${safeMade}-${safeAttempted}`;
+}
+
 function playerLine(player) {
   return {
     MIN: formatMinutes(player.minutes),
@@ -45,11 +51,11 @@ function playerLine(player) {
     BLK: player.blocks,
     TO: player.turnovers,
     PF: player.foulsPersonal,
-    FG: `${player.fieldGoalsMade}-${player.fieldGoalsAttempted}`,
-    RIM: `${player.rimFieldGoalsMade}-${player.rimFieldGoalsAttempted}`,
-    MID: `${player.midFieldGoalsMade}-${player.midFieldGoalsAttempted}`,
-    "3PT": `${player.threePointersMade}-${player.threePointersAttempted}`,
-    FT: `${player.freeThrowsMade}-${player.freeThrowsAttempted}`,
+    FG: formatShootingLine(player.fieldGoalsMade, player.fieldGoalsAttempted),
+    RIM: formatShootingLine(player.rimFieldGoalsMade, player.rimFieldGoalsAttempted),
+    MID: formatShootingLine(player.midFieldGoalsMade, player.midFieldGoalsAttempted),
+    "3PT": formatShootingLine(player.threePointersMade, player.threePointersAttempted),
+    FT: formatShootingLine(player.freeThrowsMade, player.freeThrowsAttempted),
     "+/-": player.plusMinusPoints,
     ORTG: formatRating(player.ortg),
     DRTG: formatRating(player.drtg),
@@ -238,11 +244,11 @@ export default function BoxScoreTable({
                   if (col === "BLK") value = boxScore.totals.blocks;
                   if (col === "TO") value = boxScore.totals.turnovers;
                   if (col === "PF") value = boxScore.totals.foulsPersonal;
-                  if (col === "FG") value = `${boxScore.totals.fieldGoalsMade}-${boxScore.totals.fieldGoalsAttempted}`;
-                  if (col === "RIM") value = `${boxScore.totals.rimFieldGoalsMade}-${boxScore.totals.rimFieldGoalsAttempted}`;
-                  if (col === "MID") value = `${boxScore.totals.midFieldGoalsMade}-${boxScore.totals.midFieldGoalsAttempted}`;
-                  if (col === "3PT") value = `${boxScore.totals.threePointersMade}-${boxScore.totals.threePointersAttempted}`;
-                  if (col === "FT") value = `${boxScore.totals.freeThrowsMade}-${boxScore.totals.freeThrowsAttempted}`;
+                  if (col === "FG") value = formatShootingLine(boxScore.totals.fieldGoalsMade, boxScore.totals.fieldGoalsAttempted);
+                  if (col === "RIM") value = formatShootingLine(boxScore.totals.rimFieldGoalsMade, boxScore.totals.rimFieldGoalsAttempted);
+                  if (col === "MID") value = formatShootingLine(boxScore.totals.midFieldGoalsMade, boxScore.totals.midFieldGoalsAttempted);
+                  if (col === "3PT") value = formatShootingLine(boxScore.totals.threePointersMade, boxScore.totals.threePointersAttempted);
+                  if (col === "FT") value = formatShootingLine(boxScore.totals.freeThrowsMade, boxScore.totals.freeThrowsAttempted);
                   if (col === "ORTG") value = formatRating(ratings.ortg);
                   if (col === "DRTG") value = formatRating(ratings.drtg);
                   const atcSeparator = variant === "atc" && col === "PF";
