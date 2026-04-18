@@ -1813,6 +1813,7 @@ export default function Game({ variant = "full" }) {
   const awayTimeoutsRemaining = isPregame ? 5 : timeouts?.away;
   const homeTimeoutsRemaining = isPregame ? 5 : timeouts?.home;
   const isGLeagueGame = awayLeague === "gleague" || homeLeague === "gleague";
+  const showResetIndicator = isGLeagueGame || isWnbaGame;
   const awayResetUsed = hasUsedResetTimeout(game?.playByPlayActions || [], awayTeamId, game?.period);
   const homeResetUsed = hasUsedResetTimeout(game?.playByPlayActions || [], homeTeamId, game?.period);
   const renderFouls = (count) => (
@@ -1907,7 +1908,7 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(awayTimeoutsRemaining, isGLeagueGame, awayResetUsed)}
+                {renderTimeouts(awayTimeoutsRemaining, showResetIndicator, awayResetUsed)}
               </div>
           )}
           {(challenges || isPregame) && (
@@ -1998,7 +1999,7 @@ export default function Game({ variant = "full" }) {
             />
             {(timeouts || isPregame) && (
               <div className={styles.teamMetaRow}>
-                {renderTimeouts(homeTimeoutsRemaining, isGLeagueGame, homeResetUsed)}
+                {renderTimeouts(homeTimeoutsRemaining, showResetIndicator, homeResetUsed)}
               </div>
           )}
           {(challenges || isPregame) && (
