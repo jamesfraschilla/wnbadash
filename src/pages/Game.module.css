@@ -662,7 +662,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
 
 .paceGroup {
   display: grid;
-  gap: 2px;
+  gap: 12px;
   margin-top: 2px;
   justify-items: center;
 }
