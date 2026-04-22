@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { teamLogoUrl } from "../api.js";
 import { MATCHUP_PLAYER_PROFILES } from "../data/matchupProfiles.js";
-import { buildResolvedMatchupProfileMap, listMatchupProfiles } from "../matchupProfileData.js";
+import { buildMatchupProfileMap, buildResolvedMatchupProfileMap, listMatchupProfiles } from "../matchupProfileData.js";
 import rostersByTeamId from "../data/rosters.json";
 import { TRACKED_TEAM } from "../teamConfig.js";
 import PlayerHeadshot from "./PlayerHeadshot.jsx";
@@ -98,6 +98,10 @@ function parseHeightToInches(value) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const text = String(value || "").trim();
   if (!text) return null;
+  if (/^\d{2,3}$/.test(text)) {
+    const rawInches = Number.parseInt(text, 10);
+    return Number.isFinite(rawInches) ? rawInches : null;
+  }
   const match = text.match(/(\d+)\D+(\d+)/);
   if (!match) return null;
   const feet = Number.parseInt(match[1], 10);
@@ -133,6 +137,15 @@ function getPositionGroup(position) {
   if (rank <= 2) return "guard";
   if (rank === 3) return "wing";
   return "big";
+}
+
+function fallbackHeightForPosition(position) {
+  const rank = getPositionRank(position);
+  if (rank <= 1) return 70;
+  if (rank === 2) return 73;
+  if (rank === 3) return 75;
+  if (rank === 4) return 77;
+  return 79;
 }
 
 function inferArchetypeFromPosition(position, heightIn = null) {
@@ -210,6 +223,52 @@ function sortLineupForMatchups(players, profileMap) {
     .map(({ player }) => player);
 }
 
+function buildHeightSortValue(player, profileMap) {
+  const profile = resolveMatchupPlayerProfile(profileMap, player?.personId);
+  return parseHeightToInches(player?.height)
+    ?? profile?.heightIn
+    ?? fallbackHeightForPosition(player?.position);
+}
+
+function sortLineupByHeight(players, profileMap) {
+  return [...players]
+    .map((player, index) => ({
+      player,
+      index,
+      heightIn: buildHeightSortValue(player, profileMap),
+      rank: getPositionRank(player?.position),
+      jersey: Number.parseInt(String(player?.jerseyNum || ""), 10),
+    }))
+    .sort((a, b) => {
+      const aHeight = a.heightIn ?? Number.NEGATIVE_INFINITY;
+      const bHeight = b.heightIn ?? Number.NEGATIVE_INFINITY;
+      if (aHeight !== bHeight) return bHeight - aHeight;
+      if (a.rank !== b.rank) return b.rank - a.rank;
+      const aJersey = Number.isFinite(a.jersey) ? a.jersey : Number.POSITIVE_INFINITY;
+      const bJersey = Number.isFinite(b.jersey) ? b.jersey : Number.POSITIVE_INFINITY;
+      if (aJersey !== bJersey) return aJersey - bJersey;
+      return a.index - b.index;
+    })
+    .map(({ player }) => player);
+}
+
+function hasExplicitSmartCriteria(profile) {
+  if (!profile || typeof profile !== "object") return false;
+  return Boolean(
+    String(profile.archetype || "").trim()
+    || String(profile.defenderRole || "").trim()
+    || String(profile.offensiveRole || "").trim()
+    || (Array.isArray(profile.preferOffensiveRoles) && profile.preferOffensiveRoles.length)
+    || (Array.isArray(profile.avoidOffensiveRoles) && profile.avoidOffensiveRoles.length)
+    || (Array.isArray(profile.preferOpponentIds) && profile.preferOpponentIds.length)
+    || (Array.isArray(profile.avoidOpponentIds) && profile.avoidOpponentIds.length)
+  );
+}
+
+function hasSmartCriteriaForLineup(players, profileMap) {
+  return players.some((player) => hasExplicitSmartCriteria(profileMap?.[String(player?.personId || "").trim()]));
+}
+
 function scoreMatchup(defender, offensivePlayer, profileMap) {
   const defenderProfile = resolveMatchupPlayerProfile(profileMap, defender?.personId);
   const offensiveProfile = resolveMatchupPlayerProfile(profileMap, offensivePlayer?.personId);
@@ -281,6 +340,24 @@ function scoreMatchup(defender, offensivePlayer, profileMap) {
   return score;
 }
 
+function scoreHeightMatchup(defender, offensivePlayer, profileMap) {
+  const defenderHeight = buildHeightSortValue(defender, profileMap);
+  const offensiveHeight = buildHeightSortValue(offensivePlayer, profileMap);
+  const defenderRank = getPositionRank(defender?.position);
+  const offensiveRank = getPositionRank(offensivePlayer?.position);
+  let score = Math.abs(defenderRank - offensiveRank) * 8;
+
+  if (defenderHeight != null && offensiveHeight != null) {
+    score += Math.abs(defenderHeight - offensiveHeight) * 20;
+  } else if (defenderHeight != null || offensiveHeight != null) {
+    score += 30;
+  } else {
+    score += Math.abs(defenderRank - offensiveRank) * 12;
+  }
+
+  return score;
+}
+
 function buildLineupPermutations(players) {
   const permutations = [];
   const next = [...players];
@@ -321,6 +398,25 @@ function chooseBestOpponentOrdering(anchorPlayers, opponentPlayers, profileMap) 
   return bestPermutation;
 }
 
+function chooseBestOpponentOrderingByHeight(anchorPlayers, opponentPlayers, profileMap) {
+  const permutations = buildLineupPermutations(opponentPlayers);
+  let bestPermutation = opponentPlayers;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  permutations.forEach((candidate) => {
+    const score = anchorPlayers.reduce((total, defender, index) => {
+      return total + scoreHeightMatchup(defender, candidate[index], profileMap);
+    }, 0);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestPermutation = candidate;
+    }
+  });
+
+  return bestPermutation;
+}
+
 function reorderRowToSlotIds(row, slotIds) {
   const used = new Set();
   const nextSlotIds = [];
@@ -345,7 +441,7 @@ function reorderRowToSlotIds(row, slotIds) {
   };
 }
 
-function buildSmartMatchupSlotIds(awayRow, homeRow, profileMap) {
+function buildSmartMatchupSlotIds(awayRow, homeRow, profileMap, smartCriteriaProfileMap = null) {
   const awayPlayers = awayRow.players.filter(Boolean);
   const homePlayers = homeRow.players.filter(Boolean);
   if (awayPlayers.length !== ROW_SLOT_COUNT || homePlayers.length !== ROW_SLOT_COUNT) {
@@ -363,8 +459,46 @@ function buildSmartMatchupSlotIds(awayRow, homeRow, profileMap) {
   const anchorRow = anchorSide === "away" ? awayRow : homeRow;
   const opponentRow = anchorSide === "away" ? homeRow : awayRow;
 
-  const sortedAnchorPlayers = sortLineupForMatchups(anchorRow.players.filter(Boolean), profileMap);
-  const sortedOpponentPlayers = chooseBestOpponentOrdering(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap);
+  const allPlayers = [...anchorRow.players.filter(Boolean), ...opponentRow.players.filter(Boolean)];
+  const hasSmartCriteria = hasSmartCriteriaForLineup(allPlayers, smartCriteriaProfileMap);
+  const sortedAnchorPlayers = hasSmartCriteria
+    ? sortLineupForMatchups(anchorRow.players.filter(Boolean), profileMap)
+    : sortLineupByHeight(anchorRow.players.filter(Boolean), profileMap);
+  const sortedOpponentPlayers = hasSmartCriteria
+    ? chooseBestOpponentOrdering(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap)
+    : chooseBestOpponentOrderingByHeight(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap);
+
+  return anchorSide === "away"
+    ? {
+      away: sortedAnchorPlayers.map((player) => player.personId),
+      home: sortedOpponentPlayers.map((player) => player.personId),
+    }
+    : {
+      away: sortedOpponentPlayers.map((player) => player.personId),
+      home: sortedAnchorPlayers.map((player) => player.personId),
+    };
+}
+
+function buildHeightMatchupSlotIds(awayRow, homeRow, profileMap) {
+  const awayPlayers = awayRow.players.filter(Boolean);
+  const homePlayers = homeRow.players.filter(Boolean);
+  if (awayPlayers.length !== ROW_SLOT_COUNT || homePlayers.length !== ROW_SLOT_COUNT) {
+    return {
+      away: awayRow.slotIds,
+      home: homeRow.slotIds,
+    };
+  }
+
+  const anchorSide = isPriorityMatchupTeam(awayRow.teamId)
+    ? "away"
+    : isPriorityMatchupTeam(homeRow.teamId)
+      ? "home"
+      : "away";
+  const anchorRow = anchorSide === "away" ? awayRow : homeRow;
+  const opponentRow = anchorSide === "away" ? homeRow : awayRow;
+
+  const sortedAnchorPlayers = sortLineupByHeight(anchorRow.players.filter(Boolean), profileMap);
+  const sortedOpponentPlayers = chooseBestOpponentOrderingByHeight(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap);
 
   return anchorSide === "away"
     ? {
@@ -439,8 +573,10 @@ function normalizeRosterPlayer(player, fallback = null, teamId = null, staticPos
     height: String(
       player?.height ||
       player?.heightFeet ||
+      player?.heightIn ||
       fallback?.height ||
       fallback?.heightFeet ||
+      fallback?.heightIn ||
       profile?.heightIn ||
       ""
     ).trim(),
@@ -452,26 +588,48 @@ function buildRosterPlayers(teamBoxPlayers, stintPlayers, extraRosterPlayers, te
   const roster = [];
   const byId = new Map();
   const staticPositionMap = buildStaticRosterPositionMap(teamId);
+  const extraRosterById = new Map(
+    (Array.isArray(extraRosterPlayers) ? extraRosterPlayers : [])
+      .map((player) => [String(player?.personId || "").trim(), player])
+      .filter(([personId]) => personId)
+  );
 
-  (teamBoxPlayers || []).forEach((player) => {
-    const normalized = normalizeRosterPlayer(player, null, teamId, staticPositionMap, profileMap);
-    if (!normalized || byId.has(normalized.personId)) return;
+  const upsertRosterPlayer = (player, fallback = null) => {
+    const normalized = normalizeRosterPlayer(player, fallback, teamId, staticPositionMap, profileMap);
+    if (!normalized) return;
+
+    const existing = byId.get(normalized.personId);
+    if (existing) {
+      existing.jerseyNum = existing.jerseyNum || normalized.jerseyNum;
+      existing.firstName = existing.firstName || normalized.firstName;
+      existing.lastName = existing.lastName || normalized.lastName;
+      existing.fullName = existing.fullName || normalized.fullName;
+      existing.displayName = existing.displayName || normalized.displayName;
+      existing.position = existing.position || normalized.position;
+      existing.height = existing.height || normalized.height;
+      existing.teamId = existing.teamId || normalized.teamId;
+      return;
+    }
+
     byId.set(normalized.personId, normalized);
     roster.push(normalized);
+  };
+
+  (teamBoxPlayers || []).forEach((player) => {
+    const fallback = extraRosterById.get(String(player?.personId || "").trim()) || null;
+    upsertRosterPlayer(player, fallback);
   });
 
   normalizeStintPlayers(stintPlayers).forEach((player) => {
-    const normalized = normalizeRosterPlayer(null, player, teamId, staticPositionMap, profileMap);
-    if (!normalized || byId.has(normalized.personId)) return;
-    byId.set(normalized.personId, normalized);
-    roster.push(normalized);
+    const fallback = extraRosterById.get(String(player?.personId || "").trim()) || null;
+    upsertRosterPlayer(null, fallback || player);
+    if (fallback) {
+      upsertRosterPlayer(null, player);
+    }
   });
 
   (extraRosterPlayers || []).forEach((player) => {
-    const normalized = normalizeRosterPlayer(player, null, teamId, staticPositionMap, profileMap);
-    if (!normalized || byId.has(normalized.personId)) return;
-    byId.set(normalized.personId, normalized);
-    roster.push(normalized);
+    upsertRosterPlayer(player, null);
   });
 
   return roster;
@@ -956,6 +1114,10 @@ export default function MatchUps({
 
   const matchupProfileMap = useMemo(
     () => buildResolvedMatchupProfileMap(remoteMatchupProfiles),
+    [remoteMatchupProfiles]
+  );
+  const remoteMatchupProfileMap = useMemo(
+    () => buildMatchupProfileMap(remoteMatchupProfiles),
     [remoteMatchupProfiles]
   );
 
@@ -1555,7 +1717,7 @@ export default function MatchUps({
     const nextHomeRow = homeRow.currentStintSlotIds.length
       ? reorderRowToSlotIds(homeRow, homeRow.currentStintSlotIds)
       : homeRow;
-    const smartSlotIds = buildSmartMatchupSlotIds(nextAwayRow, nextHomeRow, matchupProfileMap);
+    const smartSlotIds = buildSmartMatchupSlotIds(nextAwayRow, nextHomeRow, matchupProfileMap, remoteMatchupProfileMap);
 
     setPersistedState((current) => ({
       ...current,
@@ -1571,13 +1733,25 @@ export default function MatchUps({
   const handleSmartReorder = () => {
     setPickerState(null);
     setRefreshMenuOpen(false);
-    const smartSlotIds = buildSmartMatchupSlotIds(renderedAwayRow, renderedHomeRow, matchupProfileMap);
+    const smartSlotIds = buildHeightMatchupSlotIds(renderedAwayRow, renderedHomeRow, matchupProfileMap);
     setPersistedState((current) => ({
       ...current,
       slots: {
         ...current.slots,
         away: smartSlotIds.away,
         home: smartSlotIds.home,
+      },
+    }));
+  };
+
+  const handleResetToDefault = () => {
+    setPickerState(null);
+    setRefreshMenuOpen(false);
+    setPersistedState((current) => ({
+      ...current,
+      slots: {
+        away: [],
+        home: [],
       },
     }));
   };
@@ -1594,8 +1768,8 @@ export default function MatchUps({
 
   const smartDefaultSlotIds = useMemo(() => {
     if (persistedState.slots.away.length || persistedState.slots.home.length) return null;
-    return buildSmartMatchupSlotIds(awayRow, homeRow, matchupProfileMap);
-  }, [awayRow, homeRow, matchupProfileMap, persistedState.slots.away.length, persistedState.slots.home.length]);
+    return buildSmartMatchupSlotIds(awayRow, homeRow, matchupProfileMap, remoteMatchupProfileMap);
+  }, [awayRow, homeRow, matchupProfileMap, persistedState.slots.away.length, persistedState.slots.home.length, remoteMatchupProfileMap]);
 
   const renderedAwayRow = useMemo(
     () => smartDefaultSlotIds?.away ? reorderRowToSlotIds(awayRow, smartDefaultSlotIds.away) : awayRow,
@@ -1944,6 +2118,9 @@ export default function MatchUps({
       {refreshMenuOpen ? (
         <div ref={refreshMenuRef} className={styles.refreshMenu}>
           <div className={styles.refreshMenuTitle}>Reset Match-Ups</div>
+          <button type="button" className={styles.refreshMenuButton} onClick={handleResetToDefault}>
+            Reset to Default
+          </button>
           <button type="button" className={styles.refreshMenuButton} onClick={() => handleRefreshRow("away")}>
             {`Refresh ${awayTeam?.teamTricode || "Away"}`}
           </button>
