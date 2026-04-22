@@ -74,6 +74,14 @@ function splitName(fullName: string) {
   };
 }
 
+function normalizeNameKey(value: string) {
+  return normalizeWhitespace(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function decodeJsonText(value: string) {
   return normalizeWhitespace(
     String(value || "")
@@ -118,23 +126,19 @@ function extractRosterEntries(html: string) {
     })
     .filter(Boolean);
 
-  if (structuredPlayers.length) {
-    return structuredPlayers;
-  }
-
   const text = stripHtml(html);
   const rosterHeadingIndex = text.indexOf("Team Roster");
-  if (rosterHeadingIndex < 0) return [];
+  if (rosterHeadingIndex < 0) return structuredPlayers;
   const coachingIndex = text.indexOf("Coaching Staff", rosterHeadingIndex);
   const rosterText = coachingIndex > rosterHeadingIndex
     ? text.slice(rosterHeadingIndex, coachingIndex)
     : text.slice(rosterHeadingIndex);
-
-  const matches = [...rosterText.matchAll(/#\s*(\d+)\s+([A-Za-z.'\- ]+?)\s+(Guard(?:-Forward)?|Forward(?:-Center)?|Center|Forward|Guard)\s+PPG/gi)];
-  return matches.map((match) => {
+  const matches = [...rosterText.matchAll(/(?:#\s*(\d+)\s+)?([A-Za-z.'\- ]+?)\s+(Guard(?:-Forward)?|Forward(?:-Center)?|Center|Forward|Guard)\s+PPG[\s\S]*?Height\s+([0-9-]+|--)\s+Exp/gi)];
+  const textPlayers = matches.map((match) => {
     const jerseyNum = String(match[1] || "").trim();
     const fullName = normalizeWhitespace(match[2] || "");
     const position = normalizeWhitespace(match[3] || "");
+    const height = normalizeWhitespace(match[4] || "");
     const { firstName, familyName } = splitName(fullName);
     return {
       personId: "",
@@ -143,8 +147,35 @@ function extractRosterEntries(html: string) {
       fullName,
       jerseyNum,
       position,
+      height,
       teamId: "",
       playerLink: "",
+    };
+  }).filter((player) => player.fullName);
+
+  if (!structuredPlayers.length) {
+    return textPlayers;
+  }
+
+  const textPlayersByKey = new Map(
+    textPlayers.map((player) => [
+      `${normalizeNameKey(player.fullName)}::${player.jerseyNum}`,
+      player,
+    ])
+  );
+
+  return structuredPlayers.map((player) => {
+    const textPlayer = textPlayersByKey.get(`${normalizeNameKey(player.fullName)}::${player.jerseyNum}`)
+      || textPlayersByKey.get(`${normalizeNameKey(player.fullName)}::`);
+    if (!textPlayer) {
+      return {
+        ...player,
+        height: "",
+      };
+    }
+    return {
+      ...player,
+      height: textPlayer.height || "",
     };
   });
 }
@@ -249,7 +280,7 @@ Deno.serve(async (req) => {
           fullName: player.fullName,
           jerseyNum: player.jerseyNum,
           position: player.position,
-          height: "",
+          height: String((player as Record<string, unknown>)?.height || "").trim(),
           teamId: player.teamId || team.teamId,
         }))
         .filter((player) => player.fullName);
