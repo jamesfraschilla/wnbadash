@@ -1,5 +1,8 @@
 import { gLeagueHeadshotOverrides } from "./gLeagueHeadshotOverrides.js";
 import mysticsLogoAltUrl from "./assets/Mystics_logo_alt.webp";
+import nigeriaNationalTeamLogoUrl from "./assets/nigeria-national-team-logo.png";
+import japanNationalTeamLogoUrl from "./assets/japan-national-team-logo.png";
+import { fetchPublishedOfficialsForGame } from "./officialAssignments.js";
 
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
@@ -772,11 +775,15 @@ function buildPregameBoxScoreTeam(team) {
   };
 }
 
-function buildPregameWnbaGame(game, seasonYear = "") {
+async function buildPregameWnbaGame(game, seasonYear = "") {
   const normalized = normalizeWnbaScheduleGame(game, seasonYear);
+  const officials = await fetchPublishedOfficialsForGame({
+    awayTeam: normalized.awayTeam,
+    homeTeam: normalized.homeTeam,
+  }).catch(() => []);
   return {
     ...normalized,
-    officials: [],
+    officials,
     callsAgainst: {},
     timeouts: { home: 7, away: 7 },
     challenges: {
@@ -927,6 +934,12 @@ export function teamLogoUrl(teamId, league = null) {
   const normalizedTeamId = String(teamId || "").trim();
   if (normalizedTeamId === "1611661322") {
     return mysticsLogoAltUrl;
+  }
+  if (normalizedTeamId === "15026") {
+    return nigeriaNationalTeamLogoUrl;
+  }
+  if (normalizedTeamId === "15008") {
+    return japanNationalTeamLogoUrl;
   }
 
   const inferredLeague =

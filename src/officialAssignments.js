@@ -79,6 +79,48 @@ export function normalizeNameKey(value) {
     .toLowerCase();
 }
 
+function normalizeGameKey(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function buildTeamAssignmentKeys(team) {
+  const city = String(team?.teamCity || "").trim();
+  const name = String(team?.teamName || "").trim();
+  const tricode = String(team?.teamTricode || "").trim();
+  const keys = new Set();
+  const push = (value) => {
+    const normalized = normalizeGameKey(value);
+    if (normalized) keys.add(normalized);
+  };
+
+  push(city);
+  push(name);
+  push(`${city} ${name}`);
+  push(tricode);
+
+  if (name.toLowerCase() === "liberty") push("new york");
+  if (name.toLowerCase() === "fever") push("indiana");
+  if (name.toLowerCase() === "storm") push("seattle");
+  if (name.toLowerCase() === "sky") push("chicago");
+  if (name.toLowerCase() === "mercury") push("phoenix");
+  if (name.toLowerCase() === "mystics") push("washington");
+  if (name.toLowerCase() === "lynx") push("minnesota");
+  if (name.toLowerCase() === "dream") push("atlanta");
+  if (name.toLowerCase() === "aces") push("las vegas");
+  if (name.toLowerCase() === "wings") push("dallas");
+  if (name.toLowerCase() === "sparks") push("los angeles");
+  if (name.toLowerCase() === "sun") push("connecticut");
+  if (name.toLowerCase() === "valkyries") push("golden state");
+
+  return [...keys];
+}
+
 export function normalizeOfficialRole(rawValue) {
   const numericRole = normalizeRoleOrderValue(rawValue);
   if (numericRole != null) {
@@ -366,4 +408,42 @@ export async function fetchPublishedOrderForOfficials(officials) {
   }
 
   return null;
+}
+
+function assignmentMatchesGame(row, awayTeam, homeTeam) {
+  const gameKey = normalizeGameKey(row?.game || "");
+  if (!gameKey) return false;
+
+  const awayKeys = buildTeamAssignmentKeys(awayTeam);
+  const homeKeys = buildTeamAssignmentKeys(homeTeam);
+  const hasAway = awayKeys.some((key) => gameKey.includes(key));
+  const hasHome = homeKeys.some((key) => gameKey.includes(key));
+  return hasAway && hasHome;
+}
+
+function buildPublishedOfficial(fullName, roleKey, order) {
+  const parts = String(fullName || "").trim().split(/\s+/).filter(Boolean);
+  return {
+    personId: `published-${normalizeNameKey(fullName)}`,
+    firstName: parts.slice(0, -1).join(" ") || parts[0] || "",
+    familyName: parts.length > 1 ? parts.slice(-1).join(" ") : "",
+    jerseyNum: "",
+    roleKey,
+    assignmentOrder: order,
+  };
+}
+
+export async function fetchPublishedOfficialsForGame({ awayTeam, homeTeam }) {
+  if (!awayTeam || !homeTeam) return [];
+
+  const assignments = await fetchPublishedAssignments();
+  const match = assignments.find((row) => assignmentMatchesGame(row, awayTeam, homeTeam));
+  if (!match) return [];
+
+  return [
+    buildPublishedOfficial(match.crewChief, "crewChief", 1),
+    buildPublishedOfficial(match.referee, "referee", 2),
+    buildPublishedOfficial(match.umpire, "umpire", 3),
+    ...(match.alternate ? [buildPublishedOfficial(match.alternate, "alternate", 4)] : []),
+  ];
 }
