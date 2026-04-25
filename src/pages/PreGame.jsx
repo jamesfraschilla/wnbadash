@@ -24,44 +24,6 @@ const SLOT_STORAGE_PREFIX = "pregame:slots:v1:";
 const SLOT_TEMPLATE_KEY = "pregame:slot-template:v1";
 const PREGAME_GLOBAL_TEMPLATE_GAME_ID = "9999999902";
 const PREGAME_ACTION_PAYLOAD = 900000001;
-const TEAM_TIME_ZONES = {
-  ATL: "America/New_York",
-  BKN: "America/New_York",
-  BOS: "America/New_York",
-  CHA: "America/New_York",
-  CHI: "America/Chicago",
-  CON: "America/New_York",
-  CLE: "America/New_York",
-  DAL: "America/Chicago",
-  DEN: "America/Denver",
-  DET: "America/New_York",
-  GSV: "America/Los_Angeles",
-  GSW: "America/Los_Angeles",
-  HOU: "America/Chicago",
-  IND: "America/New_York",
-  LAC: "America/Los_Angeles",
-  LAL: "America/Los_Angeles",
-  LVA: "America/Los_Angeles",
-  MEM: "America/Chicago",
-  MIA: "America/New_York",
-  MIL: "America/Chicago",
-  MIN: "America/Chicago",
-  NOP: "America/Chicago",
-  NYL: "America/New_York",
-  NYK: "America/New_York",
-  OKC: "America/Chicago",
-  ORL: "America/New_York",
-  PHI: "America/New_York",
-  PHX: "America/Phoenix",
-  POR: "America/Los_Angeles",
-  SAC: "America/Los_Angeles",
-  SAS: "America/Chicago",
-  SEA: "America/Los_Angeles",
-  TOR: "America/Toronto",
-  UTA: "America/Denver",
-  WAS: "America/New_York",
-};
-
 const EXPORT_SPECS = {
   portrait: { logicalWidth: 384, logicalHeight: 648, outputWidth: 1536, outputHeight: 2592 },
   landscape: { logicalWidth: 660, logicalHeight: 510, outputWidth: 3300, outputHeight: 2550 },
@@ -297,8 +259,7 @@ async function saveRemoteTemplate(slots, updatedAt = Date.now()) {
 }
 
 function getGameTimeZone(game) {
-  const homeTricode = String(game?.homeTeam?.teamTricode || "").toUpperCase();
-  return TEAM_TIME_ZONES[homeTricode] || "America/New_York";
+  return "America/New_York";
 }
 
 function formatTime(dateValue, timeZone = "America/New_York") {
@@ -322,7 +283,7 @@ function formatTime(dateValue, timeZone = "America/New_York") {
 function parseGameStart(game) {
   const utcValue = game?.gameTimeUTC;
   const etValue = game?.gameEt;
-  const candidates = [utcValue, etValue].filter(Boolean);
+  const candidates = [etValue, utcValue].filter(Boolean);
   for (const candidate of candidates) {
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed;
