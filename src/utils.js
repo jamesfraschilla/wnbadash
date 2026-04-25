@@ -17,7 +17,24 @@ export function formatDateLabel(date) {
   return format(date, "M/d/yy");
 }
 
+function normalizeTipFallback(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const match = raw.match(/(\d{1,2}:\d{2}\s*[ap]\.?m\.?)(?:\s*[A-Z]{2,4})?$/i);
+  if (!match) return "";
+  return match[1]
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/am$/i, "AM")
+    .replace(/pm$/i, "PM");
+}
+
 export function formatTipTime(gameTimeUtc, fallback, options = {}) {
+  const normalizedFallback = normalizeTipFallback(fallback);
+  if (normalizedFallback) {
+    return normalizedFallback;
+  }
   try {
     const date = new Date(gameTimeUtc);
     if (Number.isNaN(date.getTime())) {
