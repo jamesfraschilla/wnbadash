@@ -53,7 +53,7 @@ export default function Home() {
       const scoreVisible = game.gameStatus === 2 || game.gameStatus === 3;
       const clock = isLive ? normalizeClock(game.gameClock) : "";
       const tipTime = !isLive && game.gameStatus !== 3
-        ? formatTipTime(game.gameTimeUTC, game.gameEt || game.gameStatusText, { includeTimeZone: true })
+        ? formatTipTime(game.gameTimeUTC, game.gameEt || game.gameStatusText)
         : "";
 
       return (

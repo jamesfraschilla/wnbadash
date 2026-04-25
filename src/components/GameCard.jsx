@@ -13,7 +13,7 @@ export default function GameCard({ game }) {
 
   const timeLabel = isLive
     ? normalizeClock(game.gameClock)
-    : formatTipTime(game.gameTimeUTC, game.gameEt, { includeTimeZone: true });
+    : formatTipTime(game.gameTimeUTC, game.gameEt);
 
   return (
     <Link to={href} className={styles.gameLink}>
