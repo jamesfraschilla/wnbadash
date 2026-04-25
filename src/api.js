@@ -834,10 +834,30 @@ export async function fetchGamesByDate(dateStr) {
   ));
 
   const games = Array.isArray(matchingDate?.games) ? matchingDate.games : [];
-
-  return games
+  const normalizedGames = games
     .map((game) => normalizeWnbaScheduleGame(game, seasonYear))
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
+
+  const hydratedGames = await Promise.all(
+    normalizedGames.map(async (game) => {
+      if (game.gameStatus === 1) {
+        return game;
+      }
+
+      try {
+        const livePayload = await requestWnbaLiveGame(game.gameId);
+        return normalizeWnbaLiveGame(
+          livePayload.boxscore,
+          livePayload.playByPlay || {},
+          livePayload.advancedBoxScore || {}
+        );
+      } catch {
+        return game;
+      }
+    })
+  );
+
+  return hydratedGames;
 }
 
 export async function fetchWnbaTeams() {
