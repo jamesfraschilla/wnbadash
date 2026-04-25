@@ -26,7 +26,7 @@ export function formatTipTime(gameTimeUtc, fallback, options = {}) {
     const formatter = new Intl.DateTimeFormat("en-US", {
       hour: "numeric",
       minute: "2-digit",
-      timeZone: options.timeZone,
+      timeZone: options.timeZone || "America/New_York",
       timeZoneName: options.includeTimeZone ? "short" : undefined,
     });
     return formatter.format(date);
