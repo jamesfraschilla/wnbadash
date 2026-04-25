@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchGamesByDate, filterGamesByLeague, teamLogoUrl } from "../api.js";
-import { formatDateInput, formatDateLabel, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
+import { formatDateInput, formatDateLabel, formatTipTime, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
 import styles from "./Home.module.css";
 
 export default function Home() {
@@ -52,6 +52,9 @@ export default function Home() {
       const isLive = game.gameStatus === 2;
       const scoreVisible = game.gameStatus === 2 || game.gameStatus === 3;
       const clock = isLive ? normalizeClock(game.gameClock) : "";
+      const tipTime = !isLive && game.gameStatus !== 3
+        ? formatTipTime(game.gameTimeUTC, game.gameEt || game.gameStatusText, { includeTimeZone: true })
+        : "";
 
       return (
         <Link
@@ -89,7 +92,7 @@ export default function Home() {
                   )}
                 </div>
               ) : (
-                <div className={styles.statusLabel}>{game.gameStatusText}</div>
+                <div className={styles.statusLabel}>{tipTime}</div>
               )}
             </div>
           </div>

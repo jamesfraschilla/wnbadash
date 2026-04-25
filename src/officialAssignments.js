@@ -305,7 +305,7 @@ function parseAssignmentTables(html) {
         umpire: stripNumberSuffix(cells[3]),
         alternate: stripNumberSuffix(cells[4] || ""),
       }))
-      .filter((row) => row.crewChief && row.referee && row.umpire);
+      .filter((row) => row.crewChief && row.referee);
 
     if (assignments.length) {
       return assignments;
@@ -325,7 +325,7 @@ function normalizeAssignmentsPayload(payload) {
       umpire: stripNumberSuffix(row?.umpire || ""),
       alternate: stripNumberSuffix(row?.alternate || ""),
     }))
-    .filter((row) => row.crewChief && row.referee && row.umpire);
+    .filter((row) => row.crewChief && row.referee);
 }
 
 async function fetchAssignmentsViaProxy() {
@@ -393,16 +393,16 @@ export async function fetchPublishedOrderForOfficials(officials) {
       .filter(Boolean)
   );
 
-  if (nameSet.size < 3) return null;
+  if (nameSet.size < 2) return null;
 
   const assignments = await fetchPublishedAssignments();
   for (const row of assignments) {
-    const publishedNames = [row.crewChief, row.referee, row.umpire];
+    const publishedNames = [row.crewChief, row.referee, row.umpire].filter(Boolean);
     const matchCount = publishedNames.reduce((count, name) => (
       nameSet.has(normalizeNameKey(name)) ? count + 1 : count
     ), 0);
 
-    if (matchCount === 3) {
+    if (matchCount === publishedNames.length && matchCount >= 2) {
       return publishedNames;
     }
   }
@@ -443,7 +443,7 @@ export async function fetchPublishedOfficialsForGame({ awayTeam, homeTeam }) {
   return [
     buildPublishedOfficial(match.crewChief, "crewChief", 1),
     buildPublishedOfficial(match.referee, "referee", 2),
-    buildPublishedOfficial(match.umpire, "umpire", 3),
+    ...(match.umpire ? [buildPublishedOfficial(match.umpire, "umpire", 3)] : []),
     ...(match.alternate ? [buildPublishedOfficial(match.alternate, "alternate", 4)] : []),
   ];
 }

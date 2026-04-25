@@ -42,7 +42,7 @@ function parseAssignmentsFromHtml(html) {
     const alternate = stripNumberSuffix(values[4] || "");
 
     if (!game.includes("@")) continue;
-    if (!crewChief || !referee || !umpire) continue;
+    if (!crewChief || !referee) continue;
 
     assignments.push({ game, crewChief, referee, umpire, alternate });
   }

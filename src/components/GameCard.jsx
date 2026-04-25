@@ -11,7 +11,9 @@ export default function GameCard({ game }) {
   const isFinal = game.gameStatus === 3 || (game.gameStatusText || "").toLowerCase().includes("final");
   const isLive = game.gameStatus === 2;
 
-  const timeLabel = isLive ? normalizeClock(game.gameClock) : formatTipTime(game.gameTimeUTC, game.gameEt);
+  const timeLabel = isLive
+    ? normalizeClock(game.gameClock)
+    : formatTipTime(game.gameTimeUTC, game.gameEt, { includeTimeZone: true });
 
   return (
     <Link to={href} className={styles.gameLink}>

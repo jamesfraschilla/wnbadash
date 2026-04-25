@@ -17,9 +17,19 @@ export function formatDateLabel(date) {
   return format(date, "M/d/yy");
 }
 
-export function formatTipTime(gameTimeUtc, fallback) {
+export function formatTipTime(gameTimeUtc, fallback, options = {}) {
   try {
-    return format(new Date(gameTimeUtc), "h:mm a");
+    const date = new Date(gameTimeUtc);
+    if (Number.isNaN(date.getTime())) {
+      throw new Error("Invalid date");
+    }
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: options.timeZone,
+      timeZoneName: options.includeTimeZone ? "short" : undefined,
+    });
+    return formatter.format(date);
   } catch {
     return fallback || "TBD";
   }
