@@ -67,6 +67,8 @@ export default function PlayByPlay() {
     queryFn: () => fetchGame(gameId),
     enabled: Boolean(gameId),
     staleTime: 30_000,
+    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
+    refetchIntervalInBackground: true,
   });
 
   const actions = game?.playByPlayActions || [];

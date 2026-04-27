@@ -2,6 +2,7 @@ import { Link, useSearchParams, useParams } from "react-router-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createNote } from "../accountData.js";
+import { requestGameAnalysis } from "../analysisData.js";
 import {
   fetchCurrentGLeagueRosters,
   fetchCurrentNbaRosters,
@@ -21,6 +22,17 @@ import {
   NOTE_SECOND_OPTIONS,
   NOTE_TAG_OPTIONS,
 } from "../noteHelpers.js";
+import {
+  applyAnalysisSegmentShortcut,
+  analysisPeriodLabel,
+  buildAnalysisMinuteOptions,
+  buildAnalysisPeriodOptions,
+  buildAnalysisSegmentOptions,
+  buildAnalysisSecondOptions,
+  buildInitialAnalysisForm,
+  formatAnalysisPoint,
+  validateAnalysisForm,
+} from "../gameAnalysis.js";
 import { gameStatusLabel, normalizeClock } from "../utils.js";
 import BoxScoreTable from "../components/BoxScoreTable.jsx";
 import StatBars from "../components/StatBars.jsx";
@@ -48,6 +60,13 @@ import {
 } from "../segmentStats.js";
 import { supabase } from "../supabaseClient.js";
 import { isTrackedGame } from "../teamConfig.js";
+import {
+  getSavedToolRecord,
+  getSavedToolRecordRemote,
+  saveToolRecord,
+  saveToolRecordRemote,
+  TOOL_RECORD_TYPES,
+} from "../toolVault.js";
 import { readLocalStorage, writeLocalStorage } from "../storage.js";
 import styles from "./Game.module.css";
 
@@ -473,9 +492,10 @@ const compareActionsByChronology = (a, b) => {
 
 export default function Game({ variant = "full" }) {
   const { gameId } = useParams();
-  const { user, canUseMatchUps } = useAuth();
+  const { user, canUseMatchUps, accountsEnabled } = useAuth();
   const [params, setParams] = useSearchParams();
   const dateParam = params.get("d");
+  const analysisRecordParam = String(params.get("analysis") || "").trim();
   const courtBackUrl = dateParam ? `/g/${gameId}?d=${dateParam}` : `/g/${gameId}`;
   const urlSegmentParam = params.get("segment");
   const segmentFromUrl = useMemo(() => {
@@ -513,6 +533,14 @@ export default function Game({ variant = "full" }) {
     text: "",
     tags: [],
   });
+  const [analysisModalOpen, setAnalysisModalOpen] = useState(false);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisUniformOpen, setAnalysisUniformOpen] = useState(false);
+  const [analysisSaveStatus, setAnalysisSaveStatus] = useState("");
+  const [analysisSaving, setAnalysisSaving] = useState(false);
+  const [analysisForm, setAnalysisForm] = useState(() => buildInitialAnalysisForm(null, false));
   const isAtc = variant === "atc";
   const showExtras = !isAtc;
   const notesParams = useMemo(() => {
@@ -660,7 +688,7 @@ export default function Game({ variant = "full" }) {
     queryFn: () => fetchGame(gameId, segmentParam),
     enabled: Boolean(gameId),
     staleTime: 30_000,
-    refetchInterval: (data) => (data?.gameStatus === 3 ? false : 15_000),
+    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });
 
@@ -751,6 +779,12 @@ export default function Game({ variant = "full" }) {
   const isLive = game?.gameStatus === 2;
   const clock = isLive ? normalizeClock(game?.gameClock) : null;
   const useSnapshots = isLive;
+  const hasAnalysisData = (game?.playByPlayActions || []).length > 0;
+  const analysisDisabledReason = isPregame
+    ? "Analysis is available after tip-off."
+    : !hasAnalysisData
+      ? "Analysis is available once play-by-play data is available."
+      : "";
 
   useEffect(() => {
     let cancelled = false;
@@ -873,6 +907,61 @@ export default function Game({ variant = "full" }) {
     setSnapshots(loadSnapshots(gameId));
   }, [gameId]);
 
+  useEffect(() => {
+    if (!analysisModalOpen) return;
+    if (isLive) {
+      setAnalysisForm((prev) => {
+        const nextDefaults = buildInitialAnalysisForm(game, isLive);
+        if (prev.segmentShortcut && prev.segmentShortcut !== "custom") {
+          return prev;
+        }
+        return {
+          ...prev,
+          segmentShortcut: prev.segmentShortcut,
+          maxPeriod: nextDefaults.maxPeriod,
+          maxMinutes: nextDefaults.maxMinutes,
+          maxSeconds: nextDefaults.maxSeconds,
+        };
+      });
+    }
+  }, [analysisModalOpen, game, isLive]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!analysisRecordParam || !user?.id || !gameId) return () => {
+      cancelled = true;
+    };
+
+    const loadSavedAnalysis = async () => {
+      try {
+        const record = accountsEnabled
+          ? await getSavedToolRecordRemote(user.id, analysisRecordParam)
+          : getSavedToolRecord(user.id, analysisRecordParam);
+        if (cancelled || !record || record.type !== TOOL_RECORD_TYPES.GAME_ANALYSIS) return;
+        const payload = record.payload && typeof record.payload === "object" ? record.payload : {};
+        if (String(payload.gameId || "") !== String(gameId || "")) return;
+        if (payload.analysisForm && typeof payload.analysisForm === "object") {
+          setAnalysisForm(payload.analysisForm);
+        }
+        setAnalysisResult(payload.analysisResult || null);
+        setAnalysisUniformOpen(false);
+        setAnalysisSaveStatus(`Loaded from My Vault: ${record.title}`);
+        setAnalysisError("");
+        setAnalysisModalOpen(true);
+      } catch (error) {
+        if (!cancelled) {
+          setAnalysisError(error?.message || "Unable to load saved analysis.");
+          setAnalysisModalOpen(true);
+        }
+      }
+    };
+
+    loadSavedAnalysis();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountsEnabled, analysisRecordParam, gameId, user?.id]);
+
   const segmentStats = homeTeam?.teamId && awayTeam?.teamId
     ? aggregateSegmentStats({
       actions: game?.playByPlayActions || [],
@@ -987,10 +1076,50 @@ export default function Game({ variant = "full" }) {
     holdPointerStartRef.current = null;
   };
 
+  const updateAnalysisPoint = (prefix, field, value) => {
+    if (prefix === "max" && isLive) return;
+    setAnalysisForm((prev) => {
+      const next = {
+        ...prev,
+        segmentShortcut: "custom",
+        [`${prefix}${field}`]: value,
+      };
+      const period = Number(next[`${prefix}Period`]) || 1;
+      const minuteOptions = buildAnalysisMinuteOptions(period);
+      if (!minuteOptions.includes(String(next[`${prefix}Minutes`]))) {
+        next[`${prefix}Minutes`] = minuteOptions[0];
+      }
+      const secondOptions = buildAnalysisSecondOptions(period, next[`${prefix}Minutes`]);
+      const normalizedSeconds = String(next[`${prefix}Seconds`] ?? "00").padStart(2, "0");
+      if (!secondOptions.includes(normalizedSeconds)) {
+        next[`${prefix}Seconds`] = secondOptions[0];
+      }
+      return next;
+    });
+  };
+
+  const updateAnalysisSegmentShortcut = (value) => {
+    setAnalysisForm((prev) => {
+      if (value === "custom") {
+        return { ...prev, segmentShortcut: "custom" };
+      }
+      return applyAnalysisSegmentShortcut(value, game, isLive);
+    });
+  };
+
   const openAddNote = () => {
     setNoteSourceAction(null);
     setNoteForm(buildDefaultNoteForm(game, isLive));
     setNoteModalOpen(true);
+  };
+
+  const openAnalysisModal = () => {
+    setAnalysisForm(buildInitialAnalysisForm(game, isLive));
+    setAnalysisError("");
+    setAnalysisResult(null);
+    setAnalysisUniformOpen(false);
+    setAnalysisSaveStatus("");
+    setAnalysisModalOpen(true);
   };
 
   const openAddNoteForAction = (action) => {
@@ -1006,8 +1135,21 @@ export default function Game({ variant = "full" }) {
     setNoteSourceAction(null);
   };
 
+  const closeAnalysisModal = () => {
+    setAnalysisModalOpen(false);
+    setAnalysisLoading(false);
+    setAnalysisError("");
+    setAnalysisResult(null);
+    setAnalysisUniformOpen(false);
+    setAnalysisSaveStatus("");
+  };
+
   const requestCancelNote = () => {
     closeAddNote();
+  };
+
+  const requestCancelAnalysis = () => {
+    closeAnalysisModal();
   };
 
   const saveNewNote = async () => {
@@ -1037,6 +1179,90 @@ export default function Game({ variant = "full" }) {
     } catch (error) {
       setSavingNewNote(false);
       window.alert(error?.message || "Unable to save note.");
+    }
+  };
+
+  const analysisValidation = validateAnalysisForm(analysisForm, game, isLive);
+  const analysisPeriodOptions = buildAnalysisPeriodOptions(game?.period || 4);
+  const analysisSegmentOptions = buildAnalysisSegmentOptions(game, isLive);
+  const minMinuteOptions = buildAnalysisMinuteOptions(analysisForm.minPeriod);
+  const minSecondOptions = buildAnalysisSecondOptions(analysisForm.minPeriod, analysisForm.minMinutes);
+  const maxMinuteOptions = buildAnalysisMinuteOptions(analysisForm.maxPeriod);
+  const maxSecondOptions = buildAnalysisSecondOptions(analysisForm.maxPeriod, analysisForm.maxMinutes);
+
+  const generateAnalysis = async () => {
+    if (!gameId || analysisLoading) return;
+    if (analysisValidation.error) {
+      setAnalysisError(analysisValidation.error);
+      return;
+    }
+
+    const { minPoint, maxPoint } = analysisValidation;
+    const toClock = (point) => `${point.minutes}:${String(point.seconds).padStart(2, "0")}`;
+
+    try {
+      setAnalysisLoading(true);
+      setAnalysisError("");
+      const result = await requestGameAnalysis({
+        gameId,
+        game,
+        minutesData,
+        range: {
+          minPeriod: minPoint.period,
+          minClock: toClock(minPoint),
+          minLabel: formatAnalysisPoint(minPoint),
+          maxPeriod: maxPoint.period,
+          maxClock: toClock(maxPoint),
+          maxLabel: formatAnalysisPoint(maxPoint),
+        },
+      });
+      setAnalysisResult(result);
+      setAnalysisUniformOpen(false);
+      setAnalysisSaveStatus("");
+    } catch (error) {
+      setAnalysisError(error?.message || "Unable to generate analysis.");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  const saveAnalysisToVault = async () => {
+    if (!user?.id || !analysisResult || analysisSaving || !gameId) return;
+    const title = `${analysisValidation.rangeLabel} Analysis`;
+    const recordId = analysisRecordParam || crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    const record = {
+      id: recordId,
+      type: TOOL_RECORD_TYPES.GAME_ANALYSIS,
+      title,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      payload: {
+        gameId,
+        rangeLabel: analysisValidation.rangeLabel,
+        analysisForm,
+        analysisResult,
+      },
+    };
+    try {
+      setAnalysisSaving(true);
+      const savedRecord = accountsEnabled
+        ? await saveToolRecordRemote(user.id, record)
+        : saveToolRecord(user.id, record);
+      if (!savedRecord) return;
+      const nextParams = new URLSearchParams(params);
+      nextParams.set("analysis", savedRecord.id);
+      setParams(nextParams, { replace: true });
+      setAnalysisSaveStatus(`Saved to My Vault as ${savedRecord.title}`);
+    } catch (error) {
+      const savedRecord = saveToolRecord(user.id, record);
+      if (!savedRecord) return;
+      const nextParams = new URLSearchParams(params);
+      nextParams.set("analysis", savedRecord.id);
+      setParams(nextParams, { replace: true });
+      setAnalysisSaveStatus(`Saved locally as ${savedRecord.title}`);
+    } finally {
+      setAnalysisSaving(false);
     }
   };
 
@@ -2034,6 +2260,15 @@ export default function Game({ variant = "full" }) {
             <Link to={`/g/${gameId}/notes${notesParams}`}>
               View Notes
             </Link>
+            <button
+              type="button"
+              className={styles.navButton}
+              onClick={openAnalysisModal}
+              disabled={!hasAnalysisData || isPregame}
+              title={analysisDisabledReason || undefined}
+            >
+              Analysis
+            </button>
           </div>
 
           <div className={styles.pbpWheel} ref={pbpWheelRef} onScroll={clearHoldTimer}>
@@ -2278,6 +2513,257 @@ export default function Game({ variant = "full" }) {
               <button type="button" className={styles.noteSave} onClick={saveNewNote} disabled={savingNewNote}>
                 {savingNewNote ? "Saving..." : "OK"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {analysisModalOpen && (
+        <div className={styles.noteOverlay} onClick={requestCancelAnalysis}>
+          <div
+            className={`${styles.noteModal} ${styles.analysisModal}`}
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3>Analysis</h3>
+
+            <div className={styles.noteTimeRow}>
+              <div className={styles.noteTimeLabel}>Min time</div>
+              <div className={styles.noteTimeControls}>
+                <select
+                  className={styles.noteSelect}
+                  value={analysisForm.minPeriod}
+                  onChange={(event) => updateAnalysisPoint("min", "Period", event.target.value)}
+                >
+                  {analysisPeriodOptions.map((option) => (
+                    <option key={`min-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className={styles.noteClockSelects}>
+                  <select
+                    className={styles.noteSelect}
+                    value={analysisForm.minMinutes}
+                    onChange={(event) => updateAnalysisPoint("min", "Minutes", event.target.value)}
+                  >
+                    {minMinuteOptions.map((option) => (
+                      <option key={`min-minute-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.noteClockSeparator}>:</span>
+                  <select
+                    className={styles.noteSelect}
+                    value={analysisForm.minSeconds}
+                    onChange={(event) => updateAnalysisPoint("min", "Seconds", event.target.value)}
+                  >
+                    {minSecondOptions.map((option) => (
+                      <option key={`min-second-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.noteTimeRow}>
+              <div className={styles.noteTimeLabel}>Max time</div>
+              <div className={styles.noteTimeControls}>
+                <select
+                  className={styles.noteSelect}
+                  value={analysisForm.maxPeriod}
+                  onChange={(event) => updateAnalysisPoint("max", "Period", event.target.value)}
+                  disabled={isLive}
+                >
+                  {analysisPeriodOptions.map((option) => (
+                    <option key={`max-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className={styles.noteClockSelects}>
+                  <select
+                    className={styles.noteSelect}
+                    value={analysisForm.maxMinutes}
+                    onChange={(event) => updateAnalysisPoint("max", "Minutes", event.target.value)}
+                    disabled={isLive}
+                  >
+                    {maxMinuteOptions.map((option) => (
+                      <option key={`max-minute-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.noteClockSeparator}>:</span>
+                  <select
+                    className={styles.noteSelect}
+                    value={analysisForm.maxSeconds}
+                    onChange={(event) => updateAnalysisPoint("max", "Seconds", event.target.value)}
+                    disabled={isLive}
+                  >
+                    {maxSecondOptions.map((option) => (
+                      <option key={`max-second-${option}`} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {isLive ? (
+                  <span className={styles.analysisLiveCap}>
+                    Live max: {analysisPeriodLabel(game?.period)} {clock}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className={styles.noteTimeRow}>
+              <div className={styles.noteTimeLabel}>Segment shortcut</div>
+              <div className={styles.noteTimeControls}>
+                <select
+                  className={styles.noteSelect}
+                  value={analysisForm.segmentShortcut || "custom"}
+                  onChange={(event) => updateAnalysisSegmentShortcut(event.target.value)}
+                >
+                  {analysisSegmentOptions.map((option) => (
+                    <option key={`segment-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {analysisValidation.error ? (
+              <div className={styles.analysisError}>{analysisValidation.error}</div>
+            ) : (
+              <div className={styles.analysisRangeSummary}>{analysisValidation.rangeLabel}</div>
+            )}
+
+            {analysisError ? <div className={styles.analysisError}>{analysisError}</div> : null}
+            {analysisSaveStatus ? <div className={styles.analysisRangeSummary}>{analysisSaveStatus}</div> : null}
+
+            {analysisResult ? (
+              <div className={styles.analysisResult}>
+                {analysisResult.headline ? (
+                  <div className={styles.analysisHeadline}>{analysisResult.headline}</div>
+                ) : null}
+                {analysisResult.summary ? (
+                  <p className={styles.analysisSummary}>{analysisResult.summary}</p>
+                ) : null}
+                {Array.isArray(analysisResult.sections) && analysisResult.sections.length ? (
+                  analysisResult.sections.map((section) => (
+                    <div key={section.title} className={styles.analysisSection}>
+                      <div className={styles.analysisSectionTitle}>{section.title}</div>
+                      <ul className={styles.analysisList}>
+                        {Array.isArray(section.items) ? section.items.map((item) => (
+                          <li key={item}>{item}</li>
+                        )) : null}
+                      </ul>
+                    </div>
+                  ))
+                ) : null}
+                {!Array.isArray(analysisResult.sections) || !analysisResult.sections.length ? (
+                  Array.isArray(analysisResult.swingFactors) && analysisResult.swingFactors.length ? (
+                    <div className={styles.analysisSection}>
+                      <div className={styles.analysisSectionTitle}>Swing Factors</div>
+                      <ul className={styles.analysisList}>
+                        {analysisResult.swingFactors.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null
+                ) : null}
+                {!Array.isArray(analysisResult.sections) || !analysisResult.sections.length ? (
+                  Array.isArray(analysisResult.lineupNotes) && analysisResult.lineupNotes.length ? (
+                    <div className={styles.analysisSection}>
+                      <div className={styles.analysisSectionTitle}>Lineup Notes</div>
+                      <ul className={styles.analysisList}>
+                        {analysisResult.lineupNotes.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null
+                ) : null}
+                {!Array.isArray(analysisResult.sections) || !analysisResult.sections.length ? (
+                  Array.isArray(analysisResult.statOutliers) && analysisResult.statOutliers.length ? (
+                    <div className={styles.analysisSection}>
+                      <div className={styles.analysisSectionTitle}>Stat Outliers</div>
+                      <ul className={styles.analysisList}>
+                        {analysisResult.statOutliers.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null
+                ) : null}
+                {analysisResult.uniformDetails ? (
+                  <div className={styles.analysisUniformWrap}>
+                    <button
+                      type="button"
+                      className={styles.analysisUniformToggle}
+                      onClick={() => setAnalysisUniformOpen((prev) => !prev)}
+                    >
+                      {analysisUniformOpen ? "Hide Uniform View" : "Show Uniform View"}
+                    </button>
+                    {analysisUniformOpen ? (
+                      <div className={styles.analysisUniformPanel}>
+                        {Array.isArray(analysisResult.uniformDetails.swingFactors) && analysisResult.uniformDetails.swingFactors.length ? (
+                          <div className={styles.analysisSection}>
+                            <div className={styles.analysisSectionTitle}>Swing Factors</div>
+                            <ul className={styles.analysisList}>
+                              {analysisResult.uniformDetails.swingFactors.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {Array.isArray(analysisResult.uniformDetails.lineupNotes) && analysisResult.uniformDetails.lineupNotes.length ? (
+                          <div className={styles.analysisSection}>
+                            <div className={styles.analysisSectionTitle}>Lineup Notes</div>
+                            <ul className={styles.analysisList}>
+                              {analysisResult.uniformDetails.lineupNotes.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                        {Array.isArray(analysisResult.uniformDetails.statOutliers) && analysisResult.uniformDetails.statOutliers.length ? (
+                          <div className={styles.analysisSection}>
+                            <div className={styles.analysisSectionTitle}>Stat Outliers</div>
+                            <ul className={styles.analysisList}>
+                              {analysisResult.uniformDetails.statOutliers.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className={styles.noteActions}>
+              <button type="button" className={styles.noteCancel} onClick={requestCancelAnalysis} disabled={analysisLoading || analysisSaving}>
+                Cancel
+              </button>
+              <div className={styles.noteActionsRight}>
+                {analysisResult ? (
+                  <button type="button" className={styles.noteSave} onClick={saveAnalysisToVault} disabled={analysisLoading || analysisSaving}>
+                    {analysisSaving ? "Saving..." : "Save"}
+                  </button>
+                ) : null}
+                <button type="button" className={styles.noteSave} onClick={generateAnalysis} disabled={analysisLoading || analysisSaving || Boolean(analysisValidation.error)}>
+                  {analysisLoading ? "Generating..." : "Generate"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

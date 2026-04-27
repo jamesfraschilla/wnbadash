@@ -265,6 +265,12 @@ html[data-theme="dark"] .pbpWheel {
   width: min(520px, 100%);
 }
 
+.analysisModal {
+  width: min(680px, 100%);
+  max-height: min(80vh, 760px);
+  overflow-y: auto;
+}
+
 .noteModal h3 {
   margin: 0 0 10px;
   font-size: 16px;
@@ -377,6 +383,11 @@ html[data-theme="dark"] .pbpWheel {
   gap: 8px;
 }
 
+.noteActionsRight {
+  display: flex;
+  gap: 8px;
+}
+
 .noteActions button {
   border: none;
   border-radius: 8px;
@@ -403,6 +414,107 @@ html[data-theme="dark"] .pbpWheel {
 .noteSave {
   background: var(--highlight-text);
   color: var(--bg);
+}
+
+.analysisLiveCap {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.analysisRangeSummary {
+  margin-top: 2px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.analysisError {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(147, 30, 30, 0.14);
+  border: 1px solid rgba(196, 64, 64, 0.35);
+  color: #ffb5b5;
+  font-size: 13px;
+}
+
+.analysisResult {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.analysisHeadline {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.analysisSummary {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.analysisSection {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.analysisSectionTitle {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.analysisList {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.analysisList li + li {
+  margin-top: 6px;
+}
+
+.analysisUniformWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analysisUniformToggle {
+  align-self: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.analysisUniformPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 2px;
 }
 
 .pbpEmpty {

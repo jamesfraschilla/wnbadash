@@ -67,6 +67,8 @@ export default function Minutes() {
     queryKey: ["minutes", gameId],
     queryFn: () => fetchMinutes(gameId),
     enabled: Boolean(gameId),
+    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
+    refetchIntervalInBackground: true,
   });
 
   if (isLoading) {

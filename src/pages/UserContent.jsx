@@ -10,6 +10,7 @@ import {
   deleteSavedToolRecordRemote,
   listSavedToolRecords,
   listSavedToolRecordsRemote,
+  TOOL_RECORD_TYPES,
 } from "../toolVault.js";
 import styles from "./UserContent.module.css";
 
@@ -206,6 +207,14 @@ export default function UserContent() {
     }),
     [drawings, fromDate, toDate, opponentFilter, gameMetaById]
   );
+  const matchupToolRecords = useMemo(
+    () => savedTools.filter((record) => record.type === TOOL_RECORD_TYPES.MATCHUP_GRAPHIC),
+    [savedTools]
+  );
+  const analysisToolRecords = useMemo(
+    () => savedTools.filter((record) => record.type === TOOL_RECORD_TYPES.GAME_ANALYSIS),
+    [savedTools]
+  );
 
   const tagSummaryLabel = useMemo(() => {
     if (!tagFilters.length) return "All Tags";
@@ -309,7 +318,7 @@ export default function UserContent() {
             className={`${styles.tabButton} ${tab === "tools" ? styles.tabButtonActive : ""}`}
             onClick={() => setTab("tools")}
           >
-            Match-Up Graphics
+            Tools
           </button>
         ) : null}
       </div>
@@ -494,10 +503,48 @@ export default function UserContent() {
       ) : (
         <section className={styles.section}>
           {savedTools.length === 0 ? (
-            <div className={styles.emptyState}>You have not saved any match-up graphics yet.</div>
+            <div className={styles.emptyState}>You have not saved any tools yet.</div>
           ) : (
             <div className={styles.list}>
-              {savedTools.map((toolRecord) => {
+              {analysisToolRecords.map((toolRecord) => {
+                const isDeleting = deletingKey === `tool:${toolRecord.id}`;
+                const payload = toolRecord.payload && typeof toolRecord.payload === "object" ? toolRecord.payload : {};
+                const savedGameId = String(payload.gameId || "").trim();
+                const rangeLabel = String(payload.rangeLabel || "").trim();
+                const analysisHeadline = String(payload.analysisResult?.headline || "").trim();
+                const backParams = new URLSearchParams();
+                backParams.set("analysis", toolRecord.id);
+                return (
+                  <article key={toolRecord.id} className={styles.card}>
+                    <div className={styles.cardHeader}>
+                      <div className={styles.cardTitleGroup}>
+                        <div className={styles.cardTitle}>{toolRecord.title || "Untitled"}</div>
+                        <div className={styles.cardMeta}>
+                          Analysis · Saved chunk
+                        </div>
+                      </div>
+                      <div className={styles.cardActions}>
+                        <Link className={styles.cardLink} to={savedGameId ? `/g/${savedGameId}?${backParams.toString()}` : "/me?tab=tools"}>
+                          Open Analysis
+                        </Link>
+                        <button
+                          type="button"
+                          className={styles.deleteButton}
+                          onClick={() => handleDeleteTool(toolRecord)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className={styles.cardBody}>
+                      {analysisHeadline || rangeLabel || "Saved analysis chunk."}
+                    </div>
+                    <div className={styles.cardFooter}>Updated {formatTimestamp(toolRecord.updatedAt)}</div>
+                  </article>
+                );
+              })}
+              {matchupToolRecords.map((toolRecord) => {
                 const isDeleting = deletingKey === `tool:${toolRecord.id}`;
                 const leftTeamLabel = String(toolRecord.payload?.leftTeamLabel || toolRecord.payload?.leftTeamName || "").trim();
                 const rightTeamLabel = String(toolRecord.payload?.rightTeamLabel || toolRecord.payload?.rightTeamName || "").trim();

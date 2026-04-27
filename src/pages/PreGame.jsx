@@ -283,7 +283,7 @@ function formatTime(dateValue, timeZone = "America/New_York") {
 function parseGameStart(game) {
   const utcValue = game?.gameTimeUTC;
   const etValue = game?.gameEt;
-  const candidates = [etValue, utcValue].filter(Boolean);
+  const candidates = [utcValue, etValue].filter(Boolean);
   for (const candidate of candidates) {
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed;

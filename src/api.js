@@ -732,15 +732,15 @@ function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload, advancedBoxSc
 function normalizeWnbaScheduleGame(game, seasonYear = "") {
   const statusText = String(game?.gameStatusText || game?.gameLabel || "").trim();
   const gameTimeUTC = String(
-    game?.gameTimeUTC ||
     game?.gameDateTimeUTC ||
+    game?.gameTimeUTC ||
     game?.gameDateTime ||
     ""
   ).trim();
   const gameEt = String(
     game?.gameEt ||
-    game?.gameDateEst ||
     game?.gameDateTimeEst ||
+    game?.gameDateEst ||
     ""
   ).trim();
 

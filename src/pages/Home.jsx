@@ -16,6 +16,9 @@ export default function Home() {
   const { data: games = [], isLoading, error } = useQuery({
     queryKey: ["games", dateInput],
     queryFn: () => fetchGamesByDate(dateInput),
+    refetchInterval: (query) =>
+      query.state.data?.some((game) => game.gameStatus === 2) ? 30_000 : false,
+    refetchIntervalInBackground: true,
   });
 
   const wnbaGames = useMemo(() => filterGamesByLeague(games, "wnba"), [games]);

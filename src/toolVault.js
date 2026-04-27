@@ -2,7 +2,10 @@ import { supabase } from "./supabaseClient.js";
 import { readLocalStorage, writeLocalStorage } from "./storage.js";
 
 const TOOL_VAULT_STORAGE_PREFIX = "nba-dashboard:tool-vault:v1:";
-const TOOL_RECORD_TYPE = "matchup_graphic";
+export const TOOL_RECORD_TYPES = {
+  MATCHUP_GRAPHIC: "matchup_graphic",
+  GAME_ANALYSIS: "game_analysis",
+};
 
 function toolVaultKey(userId) {
   return `${TOOL_VAULT_STORAGE_PREFIX}${String(userId || "guest").trim() || "guest"}`;
@@ -23,7 +26,7 @@ function normalizeRecord(record) {
   if (!id) return null;
   return {
     id,
-    type: String(record.type || "matchup_graphic").trim() || "matchup_graphic",
+    type: String(record.type || TOOL_RECORD_TYPES.MATCHUP_GRAPHIC).trim() || TOOL_RECORD_TYPES.MATCHUP_GRAPHIC,
     title: String(record.title || "Untitled").trim() || "Untitled",
     payload: record.payload && typeof record.payload === "object" ? record.payload : {},
     createdAt: String(record.createdAt || record.updatedAt || new Date().toISOString()),
@@ -100,7 +103,6 @@ export async function listSavedToolRecordsRemote(userId) {
     .from("user_tool_records")
     .select("*")
     .eq("owner_id", userId)
-    .eq("type", TOOL_RECORD_TYPE)
     .order("updated_at", { ascending: false });
   if (error) throw error;
   const records = (data || [])
@@ -149,7 +151,7 @@ export async function saveToolRecordRemote(userId, record) {
   const payload = {
     id: normalized.id,
     owner_id: userId,
-    type: normalized.type || TOOL_RECORD_TYPE,
+    type: normalized.type || TOOL_RECORD_TYPES.MATCHUP_GRAPHIC,
     title: normalized.title,
     payload: normalized.payload,
     created_at: normalized.createdAt,
