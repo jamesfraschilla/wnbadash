@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_OPENAI_MODEL = Deno.env.get("OPENAI_ANALYSIS_MODEL") || "gpt-4.1-mini";
 
@@ -24,8 +25,22 @@ function safeNumber(value: unknown, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function periodLengthSeconds(period: number) {
-  return period > 4 ? 5 * 60 : 10 * 60;
+function isWnbaTeamId(teamId: unknown) {
+  const numericTeamId = Number(teamId);
+  return numericTeamId >= 1611661300 && numericTeamId < 1611661400;
+}
+
+function inferRegulationMinutes(game: Record<string, unknown> | null | undefined, fallbackGameId = "") {
+  const homeTeam = (game?.homeTeam || {}) as Record<string, unknown>;
+  const awayTeam = (game?.awayTeam || {}) as Record<string, unknown>;
+  if (isWnbaTeamId(homeTeam.teamId) || isWnbaTeamId(awayTeam.teamId) || String(fallbackGameId || "").startsWith("10")) {
+    return 10;
+  }
+  return 12;
+}
+
+function periodLengthSeconds(period: number, regulationMinutes = 12) {
+  return period > 4 ? 5 * 60 : regulationMinutes * 60;
 }
 
 function normalizeClock(clock: unknown) {
@@ -46,13 +61,13 @@ function parseClockToSeconds(clock: unknown) {
   return (safeNumber(match[1], 0) * 60) + safeNumber(match[2], 0);
 }
 
-function pointToElapsedSeconds(period: number, clock: unknown) {
+function pointToElapsedSeconds(period: number, clock: unknown, regulationMinutes = 12) {
   let elapsed = 0;
   for (let current = 1; current < period; current += 1) {
-    elapsed += periodLengthSeconds(current);
+    elapsed += periodLengthSeconds(current, regulationMinutes);
   }
   const remaining = parseClockToSeconds(clock);
-  return elapsed + Math.max(0, periodLengthSeconds(period) - remaining);
+  return elapsed + Math.max(0, periodLengthSeconds(period, regulationMinutes) - remaining);
 }
 
 function periodLabel(period: number) {
@@ -72,14 +87,14 @@ function formatSecondsClock(seconds: number) {
   return `${minutes}:${String(secs).padStart(2, "0")}`;
 }
 
-function elapsedSecondsToPoint(elapsed: number) {
+function elapsedSecondsToPoint(elapsed: number, regulationMinutes = 12) {
   let remainingElapsed = Math.max(0, elapsed);
   let period = 1;
-  while (remainingElapsed > periodLengthSeconds(period)) {
-    remainingElapsed -= periodLengthSeconds(period);
+  while (remainingElapsed > periodLengthSeconds(period, regulationMinutes)) {
+    remainingElapsed -= periodLengthSeconds(period, regulationMinutes);
     period += 1;
   }
-  const remainingClock = Math.max(0, periodLengthSeconds(period) - remainingElapsed);
+  const remainingClock = Math.max(0, periodLengthSeconds(period, regulationMinutes) - remainingElapsed);
   return {
     period,
     clock: formatSecondsClock(remainingClock),
@@ -148,17 +163,25 @@ async function requireActiveUser(userClient: ReturnType<typeof createClient>, re
   return { userId: profile.id } as const;
 }
 
-function actionChronologyValue(action: Record<string, unknown>) {
+async function requestJson(url: string) {
+  const response = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status}) for ${url}`);
+  }
+  return response.json();
+}
+
+function actionChronologyValue(action: Record<string, unknown>, regulationMinutes = 12) {
   const period = safeNumber(action.period, 0);
-  const elapsed = pointToElapsedSeconds(period, action.clock);
+  const elapsed = pointToElapsedSeconds(period, action.clock, regulationMinutes);
   const order = safeNumber(action.orderNumber ?? action.actionNumber, 0);
   return { period, elapsed, order };
 }
 
-function sortActions(actions: Array<Record<string, unknown>>) {
+function sortActions(actions: Array<Record<string, unknown>>, regulationMinutes = 12) {
   return [...actions].sort((a, b) => {
-    const aValue = actionChronologyValue(a);
-    const bValue = actionChronologyValue(b);
+    const aValue = actionChronologyValue(a, regulationMinutes);
+    const bValue = actionChronologyValue(b, regulationMinutes);
     if (aValue.elapsed !== bValue.elapsed) return aValue.elapsed - bValue.elapsed;
     return aValue.order - bValue.order;
   });
@@ -168,7 +191,7 @@ function numericScore(action: Record<string, unknown>, side: "home" | "away") {
   return safeNumber(side === "home" ? action.scoreHome : action.scoreAway, 0);
 }
 
-function buildScoringEvents(actions: Array<Record<string, unknown>>, homeTeamId: string, awayTeamId: string) {
+function buildScoringEvents(actions: Array<Record<string, unknown>>, homeTeamId: string, awayTeamId: string, regulationMinutes = 12) {
   let previousHome = 0;
   let previousAway = 0;
 
@@ -188,7 +211,7 @@ function buildScoringEvents(actions: Array<Record<string, unknown>>, homeTeamId:
       actionNumber: safeNumber(action.actionNumber, 0),
       period: safeNumber(action.period, 0),
       clock: normalizeClock(action.clock),
-      elapsed: pointToElapsedSeconds(safeNumber(action.period, 0), action.clock),
+      elapsed: pointToElapsedSeconds(safeNumber(action.period, 0), action.clock, regulationMinutes),
       teamId: scoringTeamId,
       points,
       description: String(action.description || action.actionType || "").trim(),
@@ -198,11 +221,11 @@ function buildScoringEvents(actions: Array<Record<string, unknown>>, homeTeamId:
   });
 }
 
-function findScoreAtOrBefore(actions: Array<Record<string, unknown>>, elapsed: number) {
+function findScoreAtOrBefore(actions: Array<Record<string, unknown>>, elapsed: number, regulationMinutes = 12) {
   let home = 0;
   let away = 0;
   for (const action of actions) {
-    const actionElapsed = pointToElapsedSeconds(safeNumber(action.period, 0), action.clock);
+    const actionElapsed = pointToElapsedSeconds(safeNumber(action.period, 0), action.clock, regulationMinutes);
     if (actionElapsed > elapsed) break;
     home = numericScore(action, "home");
     away = numericScore(action, "away");
@@ -572,8 +595,9 @@ function buildScoreTimeline(
   startScore: { home: number; away: number },
   homeTeamId: string,
   awayTeamId: string,
+  regulationMinutes = 12,
 ) {
-  const startPoint = elapsedSecondsToPoint(rangeStartElapsed);
+  const startPoint = elapsedSecondsToPoint(rangeStartElapsed, regulationMinutes);
   const timeline = [{
     elapsed: rangeStartElapsed,
     period: startPoint.period,
@@ -775,6 +799,7 @@ function buildLateSwingInsight(
   maxClock: string,
   homeTeam: Record<string, unknown>,
   awayTeam: Record<string, unknown>,
+  regulationMinutes = 12,
 ) {
   const maxClockSeconds = parseClockToSeconds(maxClock);
   const nearPeriodEnd = maxClockSeconds <= 2;
@@ -788,14 +813,14 @@ function buildLateSwingInsight(
   const lateWindowStart = Math.max(rangeStartElapsed, rangeEndElapsed - lateWindowSeconds);
   if ((rangeEndElapsed - lateWindowStart) < 20) return null;
 
-  const startScore = findScoreAtOrBefore(actions, lateWindowStart);
-  const endScore = findScoreAtOrBefore(actions, rangeEndElapsed);
+  const startScore = findScoreAtOrBefore(actions, lateWindowStart, regulationMinutes);
+  const endScore = findScoreAtOrBefore(actions, rangeEndElapsed, regulationMinutes);
   const endEvents = scoringEvents.filter((event) => event.elapsed >= lateWindowStart && event.elapsed <= rangeEndElapsed);
   if (!endEvents.length) return null;
 
   const scoreMoments = [
     (() => {
-      const point = elapsedSecondsToPoint(lateWindowStart);
+      const point = elapsedSecondsToPoint(lateWindowStart, regulationMinutes);
       return {
         elapsed: lateWindowStart,
         period: point.period,
@@ -932,6 +957,7 @@ function buildLineupInsights(
   awayTeam: Record<string, unknown>,
   homeMargin: number,
   awayMargin: number,
+  regulationMinutes = 12,
 ) {
   const rangeSeconds = Math.max(1, rangeEndElapsed - rangeStartElapsed);
   const stintNotes: Array<{
@@ -970,8 +996,8 @@ function buildLineupInsights(
     const period = safeNumber(periodRow?.period, 0);
     const stints = Array.isArray(periodRow?.stints) ? periodRow.stints : [];
     for (const stint of stints) {
-      const stintStart = pointToElapsedSeconds(period, stint.startClock);
-      const stintEnd = pointToElapsedSeconds(period, stint.endClock);
+      const stintStart = pointToElapsedSeconds(period, stint.startClock, regulationMinutes);
+      const stintEnd = pointToElapsedSeconds(period, stint.endClock, regulationMinutes);
       const overlapStart = Math.max(rangeStartElapsed, stintStart);
       const overlapEnd = Math.min(rangeEndElapsed, stintEnd);
       const overlapSeconds = overlapEnd - overlapStart;
@@ -1081,21 +1107,23 @@ function buildFeaturePayload(
   minutesData: Record<string, unknown> | null,
   range: Record<string, unknown>,
 ) {
+  const gameId = String(game.gameId || "");
+  const regulationMinutes = inferRegulationMinutes(game, gameId);
   const homeTeam = (game.homeTeam || {}) as Record<string, unknown>;
   const awayTeam = (game.awayTeam || {}) as Record<string, unknown>;
   const homeTeamId = String(homeTeam.teamId || "");
   const awayTeamId = String(awayTeam.teamId || "");
-  const actions = sortActions(Array.isArray(game.playByPlayActions) ? game.playByPlayActions : []);
+  const actions = sortActions(Array.isArray(game.playByPlayActions) ? game.playByPlayActions : [], regulationMinutes);
 
   const minPeriod = safeNumber(range.minPeriod, 1);
   const maxPeriod = safeNumber(range.maxPeriod, 1);
-  const minClock = String(range.minClock || "12:00");
+  const minClock = String(range.minClock || `${regulationMinutes}:00`);
   const maxClock = String(range.maxClock || "0:00");
-  const rangeStartElapsed = pointToElapsedSeconds(minPeriod, minClock);
-  const rangeEndElapsed = pointToElapsedSeconds(maxPeriod, maxClock);
+  const rangeStartElapsed = pointToElapsedSeconds(minPeriod, minClock, regulationMinutes);
+  const rangeEndElapsed = pointToElapsedSeconds(maxPeriod, maxClock, regulationMinutes);
   const allowedMaxElapsed = game.gameStatus === 2
-    ? pointToElapsedSeconds(safeNumber(game.period, maxPeriod), game.gameClock)
-    : pointToElapsedSeconds(Math.max(1, safeNumber(game.period, maxPeriod)), "0:00");
+    ? pointToElapsedSeconds(safeNumber(game.period, maxPeriod), game.gameClock, regulationMinutes)
+    : pointToElapsedSeconds(Math.max(1, safeNumber(game.period, maxPeriod)), "0:00", regulationMinutes);
 
   if (rangeEndElapsed > allowedMaxElapsed) {
     throw new Error(`Max time cannot be later than ${formatPointLabel(safeNumber(game.period, maxPeriod), game.gameClock || "0:00")}.`);
@@ -1106,19 +1134,19 @@ function buildFeaturePayload(
   }
 
   const rangeActions = actions.filter((action) => {
-    const elapsed = pointToElapsedSeconds(safeNumber(action.period, 0), action.clock);
+    const elapsed = pointToElapsedSeconds(safeNumber(action.period, 0), action.clock, regulationMinutes);
     return elapsed >= rangeStartElapsed && elapsed <= rangeEndElapsed;
   });
 
-  const allScoringEvents = buildScoringEvents(actions, homeTeamId, awayTeamId);
+  const allScoringEvents = buildScoringEvents(actions, homeTeamId, awayTeamId, regulationMinutes);
   const scoringEvents = allScoringEvents.filter((event) => event.elapsed >= rangeStartElapsed && event.elapsed <= rangeEndElapsed);
-  const startScore = findScoreAtOrBefore(actions, rangeStartElapsed);
-  const endScore = findScoreAtOrBefore(actions, rangeEndElapsed);
+  const startScore = findScoreAtOrBefore(actions, rangeStartElapsed, regulationMinutes);
+  const endScore = findScoreAtOrBefore(actions, rangeEndElapsed, regulationMinutes);
   const homePoints = endScore.home - startScore.home;
   const awayPoints = endScore.away - startScore.away;
   const homeMargin = homePoints - awayPoints;
   const awayMargin = -homeMargin;
-  const scoreTimeline = buildScoreTimeline(scoringEvents, rangeStartElapsed, startScore, homeTeamId, awayTeamId);
+  const scoreTimeline = buildScoreTimeline(scoringEvents, rangeStartElapsed, startScore, homeTeamId, awayTeamId, regulationMinutes);
 
   const totals = aggregateRangeStats(rangeActions, scoringEvents, homeTeamId, awayTeamId);
   const playerTotals = buildPlayerRangeStats(rangeActions, scoringEvents);
@@ -1134,6 +1162,7 @@ function buildFeaturePayload(
     maxClock,
     homeTeam,
     awayTeam,
+    regulationMinutes,
   );
   const lineupInsights = buildLineupInsights(
     minutesData,
@@ -1143,6 +1172,7 @@ function buildFeaturePayload(
     awayTeam,
     homeMargin,
     awayMargin,
+    regulationMinutes,
   );
 
   const homeTotals = totals[homeTeamId];
@@ -1549,15 +1579,18 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const gameId = String(body?.gameId || "").trim();
-    const game = body?.game && typeof body.game === "object" ? body.game : null;
-    const minutesData = body?.minutesData && typeof body.minutesData === "object" ? body.minutesData : null;
+    let game = body?.game && typeof body.game === "object" ? body.game as Record<string, unknown> : null;
+    let minutesData = body?.minutesData && typeof body.minutesData === "object" ? body.minutesData as Record<string, unknown> : null;
     const range = typeof body?.range === "object" && body.range ? body.range : {};
 
     if (!/^\d{10}$/.test(gameId)) {
       return jsonResponse(400, { error: "A valid game ID is required." });
     }
     if (!game) {
-      return jsonResponse(400, { error: "Normalized game payload is required." });
+      game = await requestJson(`${API_BASE}/games/${gameId}`);
+    }
+    if (!minutesData) {
+      minutesData = await requestJson(`${API_BASE}/games/${gameId}/minutes`).catch(() => null);
     }
 
     const features = buildFeaturePayload(game, minutesData, range);
