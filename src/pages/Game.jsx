@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createNote } from "../accountData.js";
 import { requestGameAnalysis } from "../analysisData.js";
 import {
+  buildMinutesDataFromGame,
   fetchCurrentGLeagueRosters,
   fetchCurrentNbaRosters,
   fetchGame,
@@ -496,6 +497,8 @@ export default function Game({ variant = "full" }) {
   const [params, setParams] = useSearchParams();
   const dateParam = params.get("d");
   const analysisRecordParam = String(params.get("analysis") || "").trim();
+  const normalizedGameId = String(gameId || "").trim().padStart(10, "0");
+  const isWnbaGameId = normalizedGameId.startsWith("10");
   const courtBackUrl = dateParam ? `/g/${gameId}?d=${dateParam}` : `/g/${gameId}`;
   const urlSegmentParam = params.get("segment");
   const segmentFromUrl = useMemo(() => {
@@ -684,21 +687,25 @@ export default function Game({ variant = "full" }) {
   };
 
   const { data: game, isLoading, error } = useQuery({
-    queryKey: ["game", gameId, segmentParam],
-    queryFn: () => fetchGame(gameId, segmentParam),
+    queryKey: ["game", gameId, isWnbaGameId ? null : segmentParam],
+    queryFn: () => fetchGame(gameId, isWnbaGameId ? null : segmentParam),
     enabled: Boolean(gameId),
     staleTime: 30_000,
     refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });
 
-  const { data: minutesData } = useQuery({
+  const { data: remoteMinutesData } = useQuery({
     queryKey: ["minutes", gameId],
     queryFn: () => fetchMinutes(gameId),
-    enabled: Boolean(gameId),
+    enabled: Boolean(gameId) && !isWnbaGameId,
     refetchInterval: () => (game?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });
+  const minutesData = useMemo(
+    () => (isWnbaGameId ? buildMinutesDataFromGame(game) : remoteMinutesData),
+    [isWnbaGameId, game, remoteMinutesData]
+  );
 
   const awayTeamScope = getPregameTeamScopeForTeam(game?.awayTeam);
   const homeTeamScope = getPregameTeamScopeForTeam(game?.homeTeam);

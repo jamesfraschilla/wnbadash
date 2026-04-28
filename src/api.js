@@ -950,6 +950,12 @@ export async function fetchMinutes(gameId) {
   return buildWnbaMinutesData(game);
 }
 
+export function buildMinutesDataFromGame(game) {
+  const normalizedGameId = padGameId(game?.gameId);
+  if (!normalizedGameId.startsWith("10")) return null;
+  return buildWnbaMinutesData(game);
+}
+
 export function teamLogoUrl(teamId, league = null) {
   const normalizedTeamId = String(teamId || "").trim();
   if (normalizedTeamId === "1611661322") {
@@ -982,9 +988,19 @@ export function inferLeagueFromTeamId(teamId) {
   return "nba";
 }
 
+export function inferLeagueFromGame(game) {
+  const homeLeague = inferLeagueFromTeamId(game?.homeTeam?.teamId);
+  const awayLeague = inferLeagueFromTeamId(game?.awayTeam?.teamId);
+  if (homeLeague === awayLeague) return homeLeague;
+  const leagues = [homeLeague, awayLeague];
+  if (leagues.includes("wnba")) return "wnba";
+  if (leagues.includes("gleague")) return "gleague";
+  return "nba";
+}
+
 export function filterGamesByLeague(games, league) {
   return (Array.isArray(games) ? games : []).filter((game) => (
-    inferLeagueFromTeamId(game?.homeTeam?.teamId || game?.awayTeam?.teamId) === league
+    inferLeagueFromGame(game) === league
   ));
 }
 

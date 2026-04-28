@@ -180,7 +180,10 @@ export function resolveSharedPregamePlayersPayload(localPayload, remotePayload) 
   const localPlayers = normalizePregamePlayers(localPayload?.players || []);
   const remoteUpdatedAt = Number(remotePayload?.updatedAt || 0);
   const remotePlayers = normalizePregamePlayers(remotePayload?.players || []);
-  if (remoteUpdatedAt > 0 || remotePlayers.length) {
+  const remoteHasData = remoteUpdatedAt > 0 || remotePlayers.length > 0;
+  const localHasData = localUpdatedAt > 0 || localPlayers.length > 0;
+
+  if (remoteHasData && (!localHasData || remoteUpdatedAt >= localUpdatedAt)) {
     return {
       updatedAt: remoteUpdatedAt,
       players: remotePlayers,
@@ -211,7 +214,7 @@ export async function fetchRemotePregamePlayers(teamScope) {
     .eq("scope_type", SHARED_ROSTER_SCOPE_TYPE)
     .eq("scope_key", teamScope)
     .maybeSingle();
-  if (error) return null;
+  if (error) throw error;
   const payload = {
     updatedAt: data?.updated_at ? new Date(data.updated_at).getTime() : 0,
     players: normalizePregamePlayers(data?.payload?.players || []),

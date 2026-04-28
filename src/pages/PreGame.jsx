@@ -199,7 +199,7 @@ async function fetchRemoteSchedule(gameId) {
     .eq("game_id", String(gameId))
     .eq("action_number", PREGAME_ACTION_PAYLOAD)
     .maybeSingle();
-  if (error) return null;
+  if (error) throw error;
   const payload = parseRemotePayload(data?.note, "slots");
   return {
     updatedAt: payload.updatedAt,
@@ -215,7 +215,7 @@ async function fetchRemoteTemplate() {
     .eq("game_id", PREGAME_GLOBAL_TEMPLATE_GAME_ID)
     .eq("action_number", PREGAME_ACTION_PAYLOAD)
     .maybeSingle();
-  if (error) return null;
+  if (error) throw error;
   const payload = parseRemotePayload(data?.note, "template");
   return {
     updatedAt: payload.updatedAt,
@@ -592,7 +592,12 @@ export default function PreGame() {
 
   const trackedTeamScope = useMemo(() => getPregameTeamScope(game), [game]);
 
-  const { data: remotePlayers, isFetched: remotePlayersFetched } = useQuery({
+  const {
+    data: remotePlayers,
+    isFetched: remotePlayersFetched,
+    isError: remotePlayersErrored,
+    error: remotePlayersError,
+  } = useQuery({
     queryKey: ["pregame-players-remote", trackedTeamScope],
     queryFn: () => fetchRemotePregamePlayers(trackedTeamScope),
     enabled: Boolean(supabase && trackedTeamScope),
@@ -600,7 +605,12 @@ export default function PreGame() {
     refetchInterval: 10_000,
   });
 
-  const { data: remoteSchedule, isFetched: remoteScheduleFetched } = useQuery({
+  const {
+    data: remoteSchedule,
+    isFetched: remoteScheduleFetched,
+    isError: remoteScheduleErrored,
+    error: remoteScheduleError,
+  } = useQuery({
     queryKey: ["pregame-schedule-remote", gameId],
     queryFn: () => fetchRemoteSchedule(gameId),
     enabled: Boolean(supabase && gameId),
@@ -608,7 +618,12 @@ export default function PreGame() {
     refetchInterval: 10_000,
   });
 
-  const { data: remoteTemplate, isFetched: remoteTemplateFetched } = useQuery({
+  const {
+    data: remoteTemplate,
+    isFetched: remoteTemplateFetched,
+    isError: remoteTemplateErrored,
+    error: remoteTemplateError,
+  } = useQuery({
     queryKey: ["pregame-template-remote"],
     queryFn: fetchRemoteTemplate,
     enabled: Boolean(supabase),
@@ -627,6 +642,26 @@ export default function PreGame() {
     setPlayersHydrated(false);
     setSlotsHydrated(false);
   }, [gameId, trackedTeamScope]);
+
+  useEffect(() => {
+    const syncIssues = [
+      remotePlayersErrored ? remotePlayersError?.message || "Unable to read shared player data." : "",
+      remoteScheduleErrored ? remoteScheduleError?.message || "Unable to read shared schedule data." : "",
+      remoteTemplateErrored ? remoteTemplateError?.message || "Unable to read shared template data." : "",
+    ].filter(Boolean);
+    if (syncIssues.length) {
+      setSyncError(syncIssues[0]);
+      return;
+    }
+    setSyncError("");
+  }, [
+    remotePlayersErrored,
+    remotePlayersError,
+    remoteScheduleErrored,
+    remoteScheduleError,
+    remoteTemplateErrored,
+    remoteTemplateError,
+  ]);
 
   useEffect(() => {
     if (playersHydrated) return;
@@ -724,13 +759,14 @@ export default function PreGame() {
     const updatedAt = Date.now();
     playersUpdatedAtRef.current = updatedAt;
     persistPregamePlayers(trackedTeamScope, players, updatedAt);
+    if (supabase && remotePlayersErrored) return;
     saveRemotePregamePlayers(trackedTeamScope, players, updatedAt)
       .then(() => setSyncError(""))
       .catch((saveError) => {
         console.error("Failed to save pregame players", saveError);
         setSyncError(saveError?.message || "Unable to sync player changes.");
       });
-  }, [players, playersHydrated, trackedTeamScope]);
+  }, [players, playersHydrated, trackedTeamScope, remotePlayersErrored]);
 
   useEffect(() => {
     if (!slotsHydrated || !gameId || !slots.length) return;
@@ -739,6 +775,7 @@ export default function PreGame() {
     templateUpdatedAtRef.current = updatedAt;
     persistSlots(gameId, slots, updatedAt);
     persistSlotTemplate(slots, updatedAt);
+    if (supabase && (remoteScheduleErrored || remoteTemplateErrored)) return;
     Promise.all([
       saveRemoteSchedule(gameId, slots, updatedAt),
       saveRemoteTemplate(slots, updatedAt),
@@ -748,7 +785,7 @@ export default function PreGame() {
         console.error("Failed to save pregame schedule/template", saveError);
         setSyncError(saveError?.message || "Unable to sync pre-game schedule changes.");
       });
-  }, [gameId, slots, slotsHydrated]);
+  }, [gameId, slots, slotsHydrated, remoteScheduleErrored, remoteTemplateErrored]);
 
   useEffect(() => {
     if (!playersHydrated || !trackedTeamScope) return;
