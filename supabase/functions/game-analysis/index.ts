@@ -76,8 +76,30 @@ function periodLabel(period: number) {
   return overtimeNumber === 1 ? "OT" : `${overtimeNumber}OT`;
 }
 
-function formatPointLabel(period: number, clock: unknown) {
-  return `${periodLabel(period)} ${normalizeClock(clock) || "0:00"}`;
+function normalizePointBoundary(
+  period: number,
+  clock: unknown,
+  regulationMinutes = 12,
+  boundary: "instant" | "start" | "end" = "instant",
+) {
+  const normalizedClock = normalizeClock(clock) || "0:00";
+  if (boundary !== "start" || parseClockToSeconds(normalizedClock) !== 0) {
+    return { period, clock: normalizedClock };
+  }
+  return {
+    period: period + 1,
+    clock: formatSecondsClock(periodLengthSeconds(period + 1, regulationMinutes)),
+  };
+}
+
+function formatPointLabel(
+  period: number,
+  clock: unknown,
+  regulationMinutes = 12,
+  boundary: "instant" | "start" | "end" = "instant",
+) {
+  const normalized = normalizePointBoundary(period, clock, regulationMinutes, boundary);
+  return `${periodLabel(normalized.period)} ${normalized.clock}`;
 }
 
 function formatSecondsClock(seconds: number) {
@@ -567,7 +589,7 @@ function buildRunSummary(scoringEvents: Array<Record<string, unknown>>, homeTeam
 
   for (const event of scoringEvents) {
     const teamId = String(event.teamId || "");
-    const label = formatPointLabel(safeNumber(event.period, 0), event.clock);
+    const label = formatPointLabel(safeNumber(event.period, 0), event.clock, regulationMinutes, "end");
     if (teamId !== currentTeamId) {
       currentTeamId = teamId;
       currentPoints = safeNumber(event.points, 0);
@@ -622,7 +644,7 @@ function buildScoreTimeline(
       ...entry,
       leaderId: margin > 0 ? homeTeamId : margin < 0 ? awayTeamId : "",
       margin,
-      label: formatPointLabel(entry.period, entry.clock),
+    label: formatPointLabel(entry.period, entry.clock, regulationMinutes, "end"),
     };
   });
 }
@@ -758,8 +780,8 @@ function buildMomentumBursts(
             points: teamPoints,
             opponentPoints,
             net,
-            startLabel: formatPointLabel(safeNumber(startEvent.period, 0), startEvent.clock),
-            endLabel: formatPointLabel(safeNumber(nextEvent.period, 0), nextEvent.clock),
+            startLabel: formatPointLabel(safeNumber(startEvent.period, 0), startEvent.clock, regulationMinutes, "start"),
+            endLabel: formatPointLabel(safeNumber(nextEvent.period, 0), nextEvent.clock, regulationMinutes, "end"),
           };
         }
       }
@@ -894,7 +916,7 @@ function buildLateSwingInsight(
           teamId,
           opponentId,
           peakLead,
-          peakLabel: formatPointLabel(moment.period, moment.clock),
+          peakLabel: formatPointLabel(moment.period, moment.clock, regulationMinutes, "end"),
           peakElapsed: moment.elapsed,
           finalMargin,
           strength,
@@ -1126,7 +1148,7 @@ function buildFeaturePayload(
     : pointToElapsedSeconds(Math.max(1, safeNumber(game.period, maxPeriod)), "0:00", regulationMinutes);
 
   if (rangeEndElapsed > allowedMaxElapsed) {
-    throw new Error(`Max time cannot be later than ${formatPointLabel(safeNumber(game.period, maxPeriod), game.gameClock || "0:00")}.`);
+    throw new Error(`Max time cannot be later than ${formatPointLabel(safeNumber(game.period, maxPeriod), game.gameClock || "0:00", regulationMinutes, "end")}.`);
   }
 
   if (rangeStartElapsed >= rangeEndElapsed) {
@@ -1187,8 +1209,8 @@ function buildFeaturePayload(
 
   return {
     range: {
-      startLabel: formatPointLabel(minPeriod, minClock),
-      endLabel: formatPointLabel(maxPeriod, maxClock),
+      startLabel: formatPointLabel(minPeriod, minClock, regulationMinutes, "start"),
+      endLabel: formatPointLabel(maxPeriod, maxClock, regulationMinutes, "end"),
       duration: formatSecondsClock(rangeEndElapsed - rangeStartElapsed),
       isLive: safeNumber(game.gameStatus, 0) === 2,
     },

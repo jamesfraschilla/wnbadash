@@ -1217,10 +1217,10 @@ export default function Game({ variant = "full" }) {
         range: {
           minPeriod: minPoint.period,
           minClock: toClock(minPoint),
-          minLabel: formatAnalysisPoint(minPoint),
+          minLabel: formatAnalysisPoint(minPoint, { boundary: "start" }),
           maxPeriod: maxPoint.period,
           maxClock: toClock(maxPoint),
-          maxLabel: formatAnalysisPoint(maxPoint),
+          maxLabel: formatAnalysisPoint(maxPoint, { boundary: "end" }),
         },
       });
       setAnalysisResult(result);

@@ -21,6 +21,17 @@ export function analysisPeriodLengthSeconds(period) {
   return analysisPeriodLengthMinutes(period) * 60;
 }
 
+function normalizeBoundaryPoint(point, boundary = "instant") {
+  const normalized = normalizeAnalysisPoint(point);
+  if (boundary !== "start") return normalized;
+  if (normalized.minutes !== 0 || normalized.seconds !== 0) return normalized;
+  return {
+    period: normalized.period + 1,
+    minutes: analysisPeriodLengthMinutes(normalized.period + 1),
+    seconds: 0,
+  };
+}
+
 const ANALYSIS_SEGMENT_PRESETS = [
   { value: "all", label: "All Segments", minPeriod: 1, minMinutes: 10, minSeconds: 0, maxPeriod: 4, maxMinutes: 0, maxSeconds: 0 },
   { value: "q1", label: "Q1", minPeriod: 1, minMinutes: 10, minSeconds: 0, maxPeriod: 1, maxMinutes: 0, maxSeconds: 0 },
@@ -98,8 +109,8 @@ export function normalizeAnalysisPoint(point) {
   };
 }
 
-export function formatAnalysisPoint(point) {
-  const normalized = normalizeAnalysisPoint(point);
+export function formatAnalysisPoint(point, options = {}) {
+  const normalized = normalizeBoundaryPoint(point, options.boundary);
   return `${analysisPeriodLabel(normalized.period)} ${normalized.minutes}:${String(normalized.seconds).padStart(2, "0")}`;
 }
 
@@ -276,6 +287,6 @@ export function validateAnalysisForm(form, game, isLive) {
     error: "",
     minPoint,
     maxPoint,
-    rangeLabel: `${formatAnalysisPoint(minPoint)} to ${formatAnalysisPoint(maxPoint)}`,
+    rangeLabel: `${formatAnalysisPoint(minPoint, { boundary: "start" })} to ${formatAnalysisPoint(maxPoint, { boundary: "end" })}`,
   };
 }
