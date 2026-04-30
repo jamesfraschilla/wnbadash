@@ -16,7 +16,8 @@ async function getCurrentAccessToken() {
 export async function requestGameAnalysis({ gameId, game, minutesData, range }) {
   requireSupabase();
   const accessToken = await getCurrentAccessToken();
-  const { data, error } = await supabase.functions.invoke("wnba-game-analysis", {
+  const { data, error } = await supabase.functions.invoke("game-analysis", {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     body: {
       accessToken,
       gameId,
