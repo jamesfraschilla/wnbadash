@@ -1,5 +1,3 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
-
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_OPENAI_MODEL = Deno.env.get("OPENAI_ANALYSIS_MODEL") || "gpt-4.1-mini";
@@ -136,53 +134,6 @@ function describeLineup(players: Array<Record<string, unknown>>) {
     .map((player) => String(player?.nameI || player?.fullName || player?.playerName || "").trim())
     .filter(Boolean)
     .join(", ");
-}
-
-function getUserClient(authHeader: string) {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-  if (!supabaseUrl || !anonKey) {
-    throw new Error("Supabase function secrets are missing.");
-  }
-  return createClient(supabaseUrl, anonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-  });
-}
-
-async function requireActiveUser(userClient: ReturnType<typeof createClient>, req: Request) {
-  const authHeader = req.headers.get("Authorization") || "";
-  let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!token) {
-    const cloned = req.clone();
-    const body = await cloned.json().catch(() => ({}));
-    token = typeof body?.accessToken === "string" ? body.accessToken : "";
-  }
-  if (!token) {
-    return { error: "Missing authorization token.", status: 401 } as const;
-  }
-
-  const { data: userData, error: authError } = await userClient.auth.getUser(token);
-  if (authError || !userData?.user?.id) {
-    return { error: "Unable to verify session.", status: 401 } as const;
-  }
-
-  const { data: profile, error: profileError } = await userClient
-    .from("profiles")
-    .select("id,role,status")
-    .eq("id", userData.user.id)
-    .maybeSingle();
-
-  if (profileError || !profile || profile.status !== "active") {
-    return { error: "Active account required.", status: 403 } as const;
-  }
-
-  return { userId: profile.id } as const;
 }
 
 async function requestJson(url: string) {
@@ -577,7 +528,12 @@ function aggregateRangeStats(
   return totals;
 }
 
-function buildRunSummary(scoringEvents: Array<Record<string, unknown>>, homeTeamId: string, awayTeamId: string) {
+function buildRunSummary(
+  scoringEvents: Array<Record<string, unknown>>,
+  homeTeamId: string,
+  awayTeamId: string,
+  regulationMinutes = 12,
+) {
   const bestByTeam: Record<string, { points: number; startLabel: string; endLabel: string } | null> = {
     [homeTeamId]: null,
     [awayTeamId]: null,
@@ -736,6 +692,7 @@ function buildMomentumBursts(
   scoringEvents: Array<Record<string, unknown>>,
   homeTeam: Record<string, unknown>,
   awayTeam: Record<string, unknown>,
+  regulationMinutes = 12,
 ) {
   const homeTeamId = String(homeTeam.teamId || "");
   const awayTeamId = String(awayTeam.teamId || "");
@@ -1172,9 +1129,9 @@ function buildFeaturePayload(
 
   const totals = aggregateRangeStats(rangeActions, scoringEvents, homeTeamId, awayTeamId);
   const playerTotals = buildPlayerRangeStats(rangeActions, scoringEvents);
-  const runs = buildRunSummary(scoringEvents, homeTeamId, awayTeamId);
+  const runs = buildRunSummary(scoringEvents, homeTeamId, awayTeamId, regulationMinutes);
   const gameFlow = buildGameFlowContext(scoreTimeline, homeTeam, awayTeam);
-  const momentumBursts = buildMomentumBursts(scoringEvents, homeTeam, awayTeam);
+  const momentumBursts = buildMomentumBursts(scoringEvents, homeTeam, awayTeam, regulationMinutes);
   const lateSwing = buildLateSwingInsight(
     actions,
     scoringEvents,
@@ -1584,18 +1541,6 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") {
     return jsonResponse(405, { error: "Method not allowed." });
-  }
-
-  let userClient;
-  try {
-    userClient = getUserClient(req.headers.get("Authorization") || "");
-  } catch (error) {
-    return jsonResponse(500, { error: error instanceof Error ? error.message : "Configuration error." });
-  }
-
-  const permission = await requireActiveUser(userClient, req);
-  if ("error" in permission) {
-    return jsonResponse(permission.status, { error: permission.error });
   }
 
   try {

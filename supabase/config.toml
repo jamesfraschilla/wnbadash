@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.export-image]
 verify_jwt = false
+
+[functions.game-analysis]
+verify_jwt = false
