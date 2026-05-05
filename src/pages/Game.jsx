@@ -491,25 +491,6 @@ const compareActionsByChronology = (a, b) => {
   return aOrder - bOrder;
 };
 
-const CLOCK_TICK_INTERVAL_MS = 250;
-
-const parseIsoClockValue = (clock) => {
-  if (!clock) return 0;
-  const match = /PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/.exec(clock);
-  if (!match) return 0;
-  const minutes = Number(match[1] || 0);
-  const seconds = Number(match[2] || 0);
-  return (minutes * 60) + seconds;
-};
-
-const formatClockFromSeconds = (seconds) => {
-  const safeSeconds = Math.max(0, seconds);
-  const wholeSeconds = Math.floor(safeSeconds);
-  const minutes = Math.floor(wholeSeconds / 60);
-  const remainingSeconds = wholeSeconds % 60;
-  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
-};
-
 export default function Game({ variant = "full" }) {
   const { gameId } = useParams();
   const { user, canUseMatchUps, accountsEnabled } = useAuth();
@@ -563,7 +544,6 @@ export default function Game({ variant = "full" }) {
   const [analysisSaveStatus, setAnalysisSaveStatus] = useState("");
   const [analysisSaving, setAnalysisSaving] = useState(false);
   const [analysisForm, setAnalysisForm] = useState(() => buildInitialAnalysisForm(null, false));
-  const [animatedClock, setAnimatedClock] = useState("");
   const isAtc = variant === "atc";
   const showExtras = !isAtc;
   const notesParams = useMemo(() => {
@@ -804,7 +784,7 @@ export default function Game({ variant = "full" }) {
   const homeChallenges = challenges?.home || defaultChallenges;
   const status = game ? gameStatusLabel(game) : "";
   const isLive = game?.gameStatus === 2;
-  const clock = isLive ? (animatedClock || normalizeClock(game?.gameClock)) : null;
+  const clock = isLive ? normalizeClock(game?.gameClock) : null;
   const useSnapshots = isLive;
   const hasAnalysisData = (game?.playByPlayActions || []).length > 0;
   const analysisDisabledReason = isPregame
@@ -812,37 +792,6 @@ export default function Game({ variant = "full" }) {
     : !hasAnalysisData
       ? "Analysis is available once play-by-play data is available."
       : "";
-
-  useEffect(() => {
-    if (!isLive || !game?.gameClock) {
-      setAnimatedClock("");
-      return undefined;
-    }
-
-    const anchorRemainingSeconds = parseIsoClockValue(game.gameClock);
-    const anchorTimestamp = Date.now();
-
-    const updateAnimatedClock = () => {
-      const elapsedSeconds = Math.max(0, (Date.now() - anchorTimestamp) / 1000);
-      const remainingSeconds = Math.max(0, anchorRemainingSeconds - elapsedSeconds);
-      setAnimatedClock(formatClockFromSeconds(remainingSeconds));
-    };
-
-    updateAnimatedClock();
-
-    const intervalId = window.setInterval(updateAnimatedClock, CLOCK_TICK_INTERVAL_MS);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        updateAnimatedClock();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [game?.gameClock, game?.period, isLive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1924,7 +1873,14 @@ export default function Game({ variant = "full" }) {
     return Number(min) * 60 + Number(sec);
   };
 
-  const parseIsoClock = (clock) => parseIsoClockValue(clock);
+  const parseIsoClock = (clock) => {
+    if (!clock) return 0;
+    const match = /PT(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?/.exec(clock);
+    if (!match) return 0;
+    const minutes = Number(match[1] || 0);
+    const seconds = Number(match[2] || 0);
+    return (minutes * 60) + seconds;
+  };
 
   const estimateElapsedSegmentSeconds = () => {
     if (!isLive || !game?.period || !game?.gameClock) return null;
