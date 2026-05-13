@@ -1,5 +1,6 @@
 export const REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY = "referee_headshot_overrides_v1";
 export const REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY = "referee_headshot_preferences_v1";
+export const REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE = 308;
 
 export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
   ericlewis: {
@@ -167,11 +168,19 @@ export function readStoredRefereeHeadshotOverrides() {
   }
 }
 
-export function buildRefereeHeadshotTransform(override) {
+export function scaleRefereeOffset(value, targetSize, referenceSize = REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE) {
+  const numericValue = Number(value);
+  const numericTarget = Number(targetSize);
+  if (!Number.isFinite(numericValue)) return 0;
+  if (!Number.isFinite(numericTarget) || numericTarget <= 0) return numericValue;
+  return numericValue * (numericTarget / referenceSize);
+}
+
+export function buildRefereeHeadshotTransform(override, targetSize = REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE) {
   const safe = {
     scale: Number.isFinite(override?.scale) ? override.scale : 1,
-    offsetX: Number.isFinite(override?.offsetX) ? override.offsetX : 0,
-    offsetY: Number.isFinite(override?.offsetY) ? override.offsetY : 0,
+    offsetX: scaleRefereeOffset(override?.offsetX, targetSize),
+    offsetY: scaleRefereeOffset(override?.offsetY, targetSize),
     scaleX: Number.isFinite(override?.scaleX) ? override.scaleX : 1,
     scaleY: Number.isFinite(override?.scaleY) ? override.scaleY : 1,
   };
@@ -212,8 +221,8 @@ export function buildCanvasAvatarPlacement({
     : (Number.isFinite(override?.scale) ? override.scale : 1);
   const scaleX = baseScale * (Number.isFinite(override?.scaleX) ? override.scaleX : 1);
   const scaleY = baseScale * (Number.isFinite(override?.scaleY) ? override.scaleY : 1);
-  const offsetX = Number.isFinite(override?.offsetX) ? override.offsetX : 0;
-  let offsetY = Number.isFinite(override?.offsetY) ? override.offsetY : 0;
+  const offsetX = scaleRefereeOffset(override?.offsetX, targetSize);
+  let offsetY = scaleRefereeOffset(override?.offsetY, targetSize);
 
   if (variant === "portrait" && Number.isFinite(override?.exportOffsetYPortrait)) {
     offsetY = override.exportOffsetYPortrait;

@@ -616,7 +616,7 @@ function VisibleOfficialTile({ official }) {
             className={styles.avatarImage}
             src={official.headshotUrl}
             alt={official.fullName}
-            style={{ transform: buildRefereeHeadshotTransform(getRefereeHeadshotOverride(official.fullName)) }}
+            style={{ transform: buildRefereeHeadshotTransform(getRefereeHeadshotOverride(official.fullName), 84) }}
           />
         ) : (
           <div className={styles.avatarFallback}>{getInitials(official.fullName)}</div>
