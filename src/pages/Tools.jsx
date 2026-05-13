@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCurrentWnbaRosters, fetchWnbaTeams, teamLogoUrl } from "../api.js";
 import { useAuth } from "../auth/useAuth.js";
@@ -540,7 +540,14 @@ export default function Tools() {
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
+        <div className={styles.kicker}>Tools</div>
         <h1 className={styles.title}>Match-Up Graphic Generator</h1>
+        <p className={styles.subtitle}>Use the match-up workspace or jump into the referee headshot manager from one place.</p>
+        <div className={styles.toolLinks}>
+          <Link className={styles.toolLink} to="/tools/referee-headshots">
+            Referee Headshot Preview
+          </Link>
+        </div>
         {!remoteRostersPayload?.teams ? (
           <p className={styles.statusNote}>
             Live WNBA rosters will appear here once the `wnba-rosters` Supabase function is deployed.

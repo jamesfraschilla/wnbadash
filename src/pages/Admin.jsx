@@ -21,6 +21,7 @@ import {
   resolveSharedPregamePlayersPayload,
   saveRemotePregamePlayers,
 } from "../pregamePlayers.js";
+import RefereeHeadshotsPreview from "./RefereeHeadshotsPreview.jsx";
 import styles from "./Admin.module.css";
 
 function formatTimestamp(value) {
@@ -155,6 +156,11 @@ const ADMIN_SECTIONS = [
     key: "matchups",
     kicker: "Match-Ups",
     title: "Smart matchup profiles",
+  },
+  {
+    key: "referees",
+    kicker: "Officials",
+    title: "Referee headshots",
   },
 ];
 
@@ -1350,6 +1356,12 @@ export default function Admin() {
               onSave={(record) => saveMatchupProfileMutation.mutateAsync(record)}
               onDelete={(personId) => deleteMatchupProfileMutation.mutateAsync(personId)}
             />
+          </div>
+        ) : null}
+
+        {activeSection === "referees" ? (
+          <div className={styles.section}>
+            <RefereeHeadshotsPreview embedded />
           </div>
         ) : null}
       </section>

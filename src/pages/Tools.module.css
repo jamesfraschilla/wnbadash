@@ -34,6 +34,30 @@
   line-height: 1.5;
 }
 
+.toolLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.toolLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 82%, var(--bg));
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.toolLink:hover {
+  border-color: var(--highlight-text);
+}
+
 .workspace {
   display: grid;
   gap: 18px;

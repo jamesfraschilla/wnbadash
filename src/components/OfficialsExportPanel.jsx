@@ -2,6 +2,12 @@ import { useMemo, useState } from "react";
 import { getOfficialSortMeta, orderOfficials } from "../officialAssignments.js";
 import dinFontUrl from "../assets/fonts/DIN.ttf";
 import dinAltFontUrl from "../assets/fonts/DINalt.ttf";
+import {
+  buildCanvasAvatarPlacement,
+  buildRefereeHeadshotTransform,
+  getRefereeHeadshotOverride,
+  getRefereeHeadshotUrl,
+} from "../refereeHeadshots.js";
 import styles from "./OfficialsExportPanel.module.css";
 
 const EXPORT_SPECS = {
@@ -30,37 +36,12 @@ const EXPORT_SPECS = {
   },
 };
 
-const IMAGE_MODULES = import.meta.glob(
-  [
-    "../assets/referees/*.jpg",
-    "../assets/referees/*.jpeg",
-    "../assets/referees/*.JPG",
-    "../assets/referees/*.JPEG",
-  ],
-  { eager: true, import: "default" }
-);
-
-const refereeHeadshotMap = Object.entries(IMAGE_MODULES).reduce((map, [path, url]) => {
-  const fileName = path.split("/").pop() || "";
-  const baseName = fileName.replace(/\.(jpe?g)$/i, "");
-  map.set(normalizeNameKey(baseName), url);
-  return map;
-}, new Map());
-
 const loadedImageCache = new Map();
 let exportFontsPromise = null;
 const EXPORT_FONT_FAMILIES = {
   header: "\"DIN\"",
   body: "\"DINalt\", sans-serif",
 };
-
-function normalizeNameKey(value) {
-  return String(value || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/gi, "")
-    .toLowerCase();
-}
 
 function readOfficialName(official) {
   const first = String(official?.firstName || "").trim();
@@ -124,7 +105,7 @@ function normalizeOfficial(official, index) {
     ).trim(),
     roleKey: sortMeta.role,
     isAlternate: sortMeta.isAlternate,
-    headshotUrl: refereeHeadshotMap.get(normalizeNameKey(fullName)) || null,
+    headshotUrl: getRefereeHeadshotUrl(fullName),
   };
 }
 
@@ -365,20 +346,16 @@ function drawAvatar(context, image, official, x, y, size, radius, variant) {
 
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
-  const coverScale = Math.max(size / sourceWidth, size / sourceHeight);
-  let drawWidth = sourceWidth * coverScale;
-  let drawHeight = sourceHeight * coverScale;
-  let drawX = x + (size - drawWidth) / 2;
-  let drawY = y;
-
-  if (official.fullName === "Eric Lewis") {
-    const scale = 1.12;
-    const shift = variant === "landscape" ? 8.5 : 6;
-    drawWidth *= scale;
-    drawHeight *= scale;
-    drawX = x + (size - drawWidth) / 2;
-    drawY = y + shift;
-  }
+  const override = getRefereeHeadshotOverride(official.fullName);
+  const { drawWidth, drawHeight, drawX, drawY } = buildCanvasAvatarPlacement({
+    sourceWidth,
+    sourceHeight,
+    targetX: x,
+    targetY: y,
+    targetSize: size,
+    override,
+    variant,
+  });
 
   context.save();
   drawRoundedRectPath(context, x, y, size, size, radius);
@@ -639,7 +616,7 @@ function VisibleOfficialTile({ official }) {
             className={styles.avatarImage}
             src={official.headshotUrl}
             alt={official.fullName}
-            style={official.fullName === "Eric Lewis" ? { transform: "translateY(4px) scale(1.08)" } : undefined}
+            style={{ transform: buildRefereeHeadshotTransform(getRefereeHeadshotOverride(official.fullName)) }}
           />
         ) : (
           <div className={styles.avatarFallback}>{getInitials(official.fullName)}</div>
