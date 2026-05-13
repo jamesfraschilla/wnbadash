@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  broadcastRefereeHeadshotChange,
   buildUploadedRefereeImageId,
   buildRefereeHeadshotGroups,
   buildRefereeHeadshotImageItems,
@@ -111,20 +112,13 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [copyMessage, setCopyMessage] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
 
   const allItems = useMemo(buildRefereeHeadshotImageItems, []);
-
-  useEffect(() => {
-    const serialized = JSON.stringify(sanitizeRefereeHeadshotOverrides(overrides));
-    window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, serialized);
-  }, [overrides]);
-
-  useEffect(() => {
-    const serialized = JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences));
-    window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, serialized);
-  }, [preferences]);
+  const savedOverridesSignatureRef = useRef(serializeRefereeHeadshotOverrides(readInitialOverrides()));
+  const savedPreferencesSignatureRef = useRef(serializeRefereeHeadshotPreferences(readInitialPreferences()));
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -175,6 +169,11 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     : null;
   const selectedUploadedImageId = selectedAssignedNameKey ? buildUploadedRefereeImageId(selectedAssignedNameKey) : "";
   const selectedUsesUploadedImage = selectedPreferredItem?.id === selectedUploadedImageId;
+  const currentOverridesSignature = useMemo(() => serializeRefereeHeadshotOverrides(overrides), [overrides]);
+  const currentPreferencesSignature = useMemo(() => serializeRefereeHeadshotPreferences(preferences), [preferences]);
+  const hasUnsavedChanges =
+    currentOverridesSignature !== savedOverridesSignatureRef.current
+    || currentPreferencesSignature !== savedPreferencesSignatureRef.current;
 
   useEffect(() => {
     setAssignmentDraft(selectedAssignedName);
@@ -286,10 +285,27 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   }, [copyMessage]);
 
   useEffect(() => {
+    if (!saveMessage) return undefined;
+    const timeoutId = window.setTimeout(() => setSaveMessage(""), 2200);
+    return () => window.clearTimeout(timeoutId);
+  }, [saveMessage]);
+
+  useEffect(() => {
     if (!uploadMessage) return undefined;
     const timeoutId = window.setTimeout(() => setUploadMessage(""), 2200);
     return () => window.clearTimeout(timeoutId);
   }, [uploadMessage]);
+
+  const handleSaveChanges = () => {
+    const nextOverridesSignature = serializeRefereeHeadshotOverrides(overrides);
+    const nextPreferencesSignature = serializeRefereeHeadshotPreferences(preferences);
+    window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, nextOverridesSignature);
+    window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, nextPreferencesSignature);
+    savedOverridesSignatureRef.current = nextOverridesSignature;
+    savedPreferencesSignatureRef.current = nextPreferencesSignature;
+    broadcastRefereeHeadshotChange();
+    setSaveMessage("Saved changes.");
+  };
 
   const handleUploadButtonClick = () => {
     fileInputRef.current?.click();
@@ -355,7 +371,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
             <h1 className={styles.title}>Referee Headshot Crop Tool</h1>
             <p className={styles.subtitle}>
               This page includes all current referee assets plus duplicate review files.
-              Adjustments persist locally and use the same transform path as the officials panel.
+              Adjustments apply everywhere after you save changes.
             </p>
           </div>
           <div className={styles.summary}>
@@ -409,6 +425,10 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
         <button type="button" className={styles.secondaryButton} onClick={handleCopyPreferences}>Copy Image Preferences</button>
         <button type="button" className={styles.primaryButton} onClick={handleCopyOverrides}>Copy Overrides JSON</button>
         {copyMessage ? <span className={styles.copyMessage}>{copyMessage}</span> : null}
+        <button type="button" className={styles.primaryButton} onClick={handleSaveChanges} disabled={!hasUnsavedChanges}>
+          Save Changes
+        </button>
+        {saveMessage ? <span className={styles.copyMessage}>{saveMessage}</span> : null}
       </div>
 
       <div className={styles.workspace}>

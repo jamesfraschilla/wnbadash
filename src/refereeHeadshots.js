@@ -1,6 +1,7 @@
 export const REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY = "referee_headshot_overrides_v1";
 export const REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY = "referee_headshot_preferences_v1";
 export const REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE = 308;
+export const REFEREE_HEADSHOT_CHANGE_EVENT = "referee-headshots-updated";
 
 export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
   ericlewis: {
@@ -345,4 +346,11 @@ export function getRefereeHeadshotUrl(fullName, preferences = null) {
   const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
   const lookup = buildRefereeHeadshotLookup(effectivePreferences);
   return lookup.get(normalizeNameKey(fullName)) || null;
+}
+
+export function broadcastRefereeHeadshotChange() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(REFEREE_HEADSHOT_CHANGE_EVENT, {
+    detail: { updatedAt: Date.now() },
+  }));
 }

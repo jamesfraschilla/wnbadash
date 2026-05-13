@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getOfficialSortMeta, orderOfficials } from "../officialAssignments.js";
 import dinFontUrl from "../assets/fonts/DIN.ttf";
 import dinAltFontUrl from "../assets/fonts/DINalt.ttf";
 import {
+  REFEREE_HEADSHOT_CHANGE_EVENT,
   buildCanvasAvatarPlacement,
   buildRefereeHeadshotTransform,
   getRefereeHeadshotOverride,
@@ -637,8 +638,19 @@ export default function OfficialsExportPanel({ officials, gameId, publishedOrder
     () => buildOfficialsData(officials, publishedOrder),
     [officials, publishedOrder]
   );
+  const [, setHeadshotVersion] = useState(0);
   const [busyFormat, setBusyFormat] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+
+  useEffect(() => {
+    const handleRefresh = () => setHeadshotVersion((value) => value + 1);
+    window.addEventListener(REFEREE_HEADSHOT_CHANGE_EVENT, handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+    return () => {
+      window.removeEventListener(REFEREE_HEADSHOT_CHANGE_EVENT, handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+    };
+  }, []);
 
   const handleExport = async (format) => {
     if (busyFormat) return;
