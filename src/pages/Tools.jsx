@@ -348,7 +348,6 @@ export default function Tools() {
       if (!draftParam || !user?.id) {
         if (cancelled) return;
         setRecordId("");
-        setDraft(defaultDraft);
         setSaveStatus("");
         return;
       }
