@@ -634,11 +634,11 @@ function Spinner() {
 }
 
 export default function OfficialsExportPanel({ officials, gameId, publishedOrder, gameTimeLocal = "" }) {
+  const [headshotVersion, setHeadshotVersion] = useState(0);
   const { primary, alternates } = useMemo(
     () => buildOfficialsData(officials, publishedOrder),
-    [officials, publishedOrder]
+    [headshotVersion, officials, publishedOrder]
   );
-  const [, setHeadshotVersion] = useState(0);
   const [busyFormat, setBusyFormat] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
 
