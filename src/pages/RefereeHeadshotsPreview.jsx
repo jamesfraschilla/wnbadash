@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "../auth/useAuth.js";
 import {
   broadcastRefereeHeadshotChange,
@@ -196,6 +196,20 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
       cancelled = true;
     };
   }, [user?.id]);
+
+  // Auto-save to localStorage and broadcast changes when overrides change
+  useEffect(() => {
+    const serialized = JSON.stringify(sanitizeRefereeHeadshotOverrides(overrides));
+    window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, serialized);
+    broadcastRefereeHeadshotChange();
+  }, [overrides]);
+
+  // Auto-save to localStorage and broadcast changes when preferences change
+  useEffect(() => {
+    const serialized = JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences));
+    window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, serialized);
+    broadcastRefereeHeadshotChange();
+  }, [preferences]);
 
   useEffect(() => {
     setAssignmentDraft(selectedAssignedName);
