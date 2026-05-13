@@ -493,7 +493,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                     src={selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.dataUrl : selectedItem.url}
                     alt={selectedItem.fullName}
                     className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft) }}
+                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
                   />
                 </div>
                 <div className={styles.previewLabel}>Cropped Preview: {selectedAssignedName || selectedItem.fullName}</div>
