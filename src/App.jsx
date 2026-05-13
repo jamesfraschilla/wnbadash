@@ -5,6 +5,7 @@ import AuthGate from "./components/AuthGate.jsx";
 import LegacyNotesImportPrompt from "./components/LegacyNotesImportPrompt.jsx";
 import PasswordResetGate from "./components/PasswordResetGate.jsx";
 import { useAuth } from "./auth/useAuth.js";
+import { syncRemoteRefereeHeadshotState } from "./refereeHeadshots.js";
 import { readLocalStorage, writeLocalStorage } from "./storage.js";
 
 const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -66,6 +67,28 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     writeLocalStorage("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+
+    const syncHeadshots = () => {
+      syncRemoteRefereeHeadshotState(user.id).catch(() => {});
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncHeadshots();
+      }
+    };
+
+    syncHeadshots();
+    window.addEventListener("focus", syncHeadshots);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", syncHeadshots);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!import.meta.env.PROD || typeof window === "undefined") return undefined;

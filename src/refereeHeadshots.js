@@ -1,7 +1,11 @@
+import { getSavedToolRecordRemote, saveToolRecordRemote } from "./toolVault.js";
+
 export const REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY = "referee_headshot_overrides_v1";
 export const REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY = "referee_headshot_preferences_v1";
 export const REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE = 308;
 export const REFEREE_HEADSHOT_CHANGE_EVENT = "referee-headshots-updated";
+export const REFEREE_HEADSHOT_REMOTE_RECORD_ID = "shared-referee-headshots";
+export const REFEREE_HEADSHOT_REMOTE_RECORD_TYPE = "referee_headshots";
 
 export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
   ericlewis: {
@@ -167,6 +171,60 @@ export function readStoredRefereeHeadshotOverrides() {
   } catch {
     return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
   }
+}
+
+export function writeStoredRefereeHeadshotState(overrides, preferences) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
+    serializeRefereeHeadshotOverrides(overrides)
+  );
+  window.localStorage.setItem(
+    REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
+    serializeRefereeHeadshotPreferences(preferences)
+  );
+}
+
+export function readStoredRefereeHeadshotState() {
+  return {
+    overrides: readStoredRefereeHeadshotOverrides(),
+    preferences: readStoredRefereeHeadshotPreferences(),
+  };
+}
+
+export async function loadRemoteRefereeHeadshotState(userId) {
+  if (!userId) return null;
+  const record = await getSavedToolRecordRemote(userId, REFEREE_HEADSHOT_REMOTE_RECORD_ID);
+  if (!record?.payload || typeof record.payload !== "object") return null;
+  return {
+    overrides: {
+      ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
+      ...sanitizeRefereeHeadshotOverrides(record.payload.overrides),
+    },
+    preferences: sanitizeRefereeHeadshotPreferences(record.payload.preferences),
+  };
+}
+
+export async function saveRemoteRefereeHeadshotState(userId, { overrides, preferences }) {
+  if (!userId) return null;
+  return saveToolRecordRemote(userId, {
+    id: REFEREE_HEADSHOT_REMOTE_RECORD_ID,
+    type: REFEREE_HEADSHOT_REMOTE_RECORD_TYPE,
+    title: "Referee Headshots",
+    payload: {
+      overrides: sanitizeRefereeHeadshotOverrides(overrides),
+      preferences: sanitizeRefereeHeadshotPreferences(preferences),
+    },
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function syncRemoteRefereeHeadshotState(userId) {
+  const remoteState = await loadRemoteRefereeHeadshotState(userId);
+  if (!remoteState) return null;
+  writeStoredRefereeHeadshotState(remoteState.overrides, remoteState.preferences);
+  broadcastRefereeHeadshotChange();
+  return remoteState;
 }
 
 export function scaleRefereeOffset(value, targetSize, referenceSize = REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE) {

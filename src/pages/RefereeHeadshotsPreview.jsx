@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "../auth/useAuth.js";
 import {
   broadcastRefereeHeadshotChange,
   buildUploadedRefereeImageId,
@@ -13,10 +14,13 @@ import {
   normalizeNameKey,
   REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
   REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
+  loadRemoteRefereeHeadshotState,
+  saveRemoteRefereeHeadshotState,
   sanitizeRefereeHeadshotPreferences,
   sanitizeRefereeHeadshotOverrides,
   serializeRefereeHeadshotPreferences,
   serializeRefereeHeadshotOverrides,
+  writeStoredRefereeHeadshotState,
 } from "../refereeHeadshots.js";
 import styles from "./RefereeHeadshotsPreview.module.css";
 
@@ -103,6 +107,7 @@ async function loadImageFileAsDataUrl(file) {
 }
 
 export default function RefereeHeadshotsPreview({ embedded = false }) {
+  const { user } = useAuth();
   const [overrides, setOverrides] = useState(readInitialOverrides);
   const [preferences, setPreferences] = useState(readInitialPreferences);
   const [search, setSearch] = useState("");
@@ -174,6 +179,23 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const hasUnsavedChanges =
     currentOverridesSignature !== savedOverridesSignatureRef.current
     || currentPreferencesSignature !== savedPreferencesSignatureRef.current;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.id) return undefined;
+    loadRemoteRefereeHeadshotState(user.id)
+      .then((remoteState) => {
+        if (cancelled || !remoteState) return;
+        setOverrides(remoteState.overrides);
+        setPreferences(remoteState.preferences);
+        savedOverridesSignatureRef.current = serializeRefereeHeadshotOverrides(remoteState.overrides);
+        savedPreferencesSignatureRef.current = serializeRefereeHeadshotPreferences(remoteState.preferences);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     setAssignmentDraft(selectedAssignedName);
@@ -296,15 +318,21 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     return () => window.clearTimeout(timeoutId);
   }, [uploadMessage]);
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     const nextOverridesSignature = serializeRefereeHeadshotOverrides(overrides);
     const nextPreferencesSignature = serializeRefereeHeadshotPreferences(preferences);
-    window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, nextOverridesSignature);
-    window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, nextPreferencesSignature);
-    savedOverridesSignatureRef.current = nextOverridesSignature;
-    savedPreferencesSignatureRef.current = nextPreferencesSignature;
-    broadcastRefereeHeadshotChange();
-    setSaveMessage("Saved changes.");
+    try {
+      writeStoredRefereeHeadshotState(overrides, preferences);
+      if (user?.id) {
+        await saveRemoteRefereeHeadshotState(user.id, { overrides, preferences });
+      }
+      savedOverridesSignatureRef.current = nextOverridesSignature;
+      savedPreferencesSignatureRef.current = nextPreferencesSignature;
+      broadcastRefereeHeadshotChange();
+      setSaveMessage("Saved changes.");
+    } catch (error) {
+      setSaveMessage(error?.message || "Unable to save changes.");
+    }
   };
 
   const handleUploadButtonClick = () => {
