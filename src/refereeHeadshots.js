@@ -153,6 +153,20 @@ export function readStoredRefereeHeadshotPreferences() {
   }
 }
 
+export function readStoredRefereeHeadshotOverrides() {
+  if (typeof window === "undefined") return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+  try {
+    const raw = window.localStorage.getItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+    return {
+      ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
+      ...sanitizeRefereeHeadshotOverrides(JSON.parse(raw)),
+    };
+  } catch {
+    return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+  }
+}
+
 export function buildRefereeHeadshotTransform(override) {
   const safe = {
     scale: Number.isFinite(override?.scale) ? override.scale : 1,
@@ -164,9 +178,10 @@ export function buildRefereeHeadshotTransform(override) {
   return `translate(${safe.offsetX}px, ${safe.offsetY}px) scale(${safe.scale * safe.scaleX}, ${safe.scale * safe.scaleY})`;
 }
 
-export function getRefereeHeadshotOverride(fullName, overrides = DEFAULT_REFEREE_HEADSHOT_OVERRIDES) {
+export function getRefereeHeadshotOverride(fullName, overrides = null) {
+  const effectiveOverrides = overrides || readStoredRefereeHeadshotOverrides();
   const key = normalizeNameKey(fullName);
-  const raw = overrides?.[key];
+  const raw = effectiveOverrides?.[key];
   if (!raw || typeof raw !== "object") return null;
   return {
     scale: Number.isFinite(raw.scale) ? raw.scale : 1,
