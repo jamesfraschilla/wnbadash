@@ -167,6 +167,7 @@
 .cropImage {
   object-fit: cover;
   object-position: center top;
+  transform-origin: center center;
 }
 
 .rawImage {

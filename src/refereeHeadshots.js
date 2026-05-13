@@ -210,8 +210,8 @@ export function buildCanvasAvatarPlacement({
   const baseScale = Number.isFinite(override?.exportScale)
     ? override.exportScale
     : (Number.isFinite(override?.scale) ? override.scale : 1);
-  const scaleX = Number.isFinite(override?.scaleX) ? override.scaleX : 1;
-  const scaleY = Number.isFinite(override?.scaleY) ? override.scaleY : 1;
+  const scaleX = baseScale * (Number.isFinite(override?.scaleX) ? override.scaleX : 1);
+  const scaleY = baseScale * (Number.isFinite(override?.scaleY) ? override.scaleY : 1);
   const offsetX = Number.isFinite(override?.offsetX) ? override.offsetX : 0;
   let offsetY = Number.isFinite(override?.offsetY) ? override.offsetY : 0;
 
@@ -221,14 +221,14 @@ export function buildCanvasAvatarPlacement({
     offsetY = override.exportOffsetYLandscape;
   }
 
-  const drawWidth = safeWidth * coverScale * baseScale * scaleX;
-  const drawHeight = safeHeight * coverScale * baseScale * scaleY;
+  const drawWidth = safeWidth * coverScale * scaleX;
+  const drawHeight = safeHeight * coverScale * scaleY;
 
   return {
     drawWidth,
     drawHeight,
-    drawX: targetX + (targetSize - drawWidth) / 2 + offsetX,
-    drawY: targetY + offsetY,
+    drawX: targetX + (targetSize / 2) - (drawWidth / 2) + offsetX,
+    drawY: targetY + (targetSize / 2) - ((targetSize * scaleY) / 2) + offsetY,
   };
 }
 
