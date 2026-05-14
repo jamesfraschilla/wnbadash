@@ -759,14 +759,13 @@ export default function PreGame() {
     const updatedAt = Date.now();
     playersUpdatedAtRef.current = updatedAt;
     persistPregamePlayers(trackedTeamScope, players, updatedAt);
-    if (supabase && remotePlayersErrored) return;
     saveRemotePregamePlayers(trackedTeamScope, players, updatedAt)
       .then(() => setSyncError(""))
       .catch((saveError) => {
         console.error("Failed to save pregame players", saveError);
         setSyncError(saveError?.message || "Unable to sync player changes.");
       });
-  }, [players, playersHydrated, trackedTeamScope, remotePlayersErrored]);
+  }, [players, playersHydrated, trackedTeamScope]);
 
   useEffect(() => {
     if (!slotsHydrated || !gameId || !slots.length) return;
@@ -775,7 +774,6 @@ export default function PreGame() {
     templateUpdatedAtRef.current = updatedAt;
     persistSlots(gameId, slots, updatedAt);
     persistSlotTemplate(slots, updatedAt);
-    if (supabase && (remoteScheduleErrored || remoteTemplateErrored)) return;
     Promise.all([
       saveRemoteSchedule(gameId, slots, updatedAt),
       saveRemoteTemplate(slots, updatedAt),
@@ -785,7 +783,7 @@ export default function PreGame() {
         console.error("Failed to save pregame schedule/template", saveError);
         setSyncError(saveError?.message || "Unable to sync pre-game schedule changes.");
       });
-  }, [gameId, slots, slotsHydrated, remoteScheduleErrored, remoteTemplateErrored]);
+  }, [gameId, slots, slotsHydrated]);
 
   useEffect(() => {
     if (!playersHydrated || !trackedTeamScope) return;
