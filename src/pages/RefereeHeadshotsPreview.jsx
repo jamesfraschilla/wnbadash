@@ -493,32 +493,10 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                     src={selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.dataUrl : selectedItem.url}
                     alt={selectedItem.fullName}
                     className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
+                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 200) }}
                   />
                 </div>
-                <div className={styles.previewLabel}>Cropped Preview: {selectedAssignedName || selectedItem.fullName}</div>
-                <div className={styles.selectedRawFrame}>
-                  <img
-                    src={selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.dataUrl : selectedItem.url}
-                    alt={`${selectedItem.fullName} raw`}
-                    className={styles.rawImage}
-                  />
-                </div>
-                <div className={styles.previewLabel}>
-                  Source File: {selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.fileName : selectedItem.fileName}
-                </div>
-                {selectedUploadedImage ? (
-                  <>
-                    <div className={styles.selectedRawFrame}>
-                      <img
-                        src={selectedUploadedImage.dataUrl}
-                        alt={`${selectedAssignedName || selectedItem.fullName} uploaded replacement`}
-                        className={styles.rawImage}
-                      />
-                    </div>
-                    <div className={styles.previewLabel}>Uploaded Replacement: {selectedUploadedImage.fileName}</div>
-                  </>
-                ) : null}
+                <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
               </div>
 
               <div className={styles.controlList}>

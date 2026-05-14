@@ -146,18 +146,10 @@
 }
 
 .selectedCropFrame {
-  width: 84px;
-  height: 84px;
+  width: 200px;
+  height: 200px;
   justify-self: start;
   border-radius: 14px;
-}
-
-.selectedRawFrame {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #f3f3f3;
-  aspect-ratio: 0.72;
 }
 
 .cropImage,
@@ -171,10 +163,6 @@
   object-fit: cover;
   object-position: center top;
   transform-origin: center center;
-}
-
-.rawImage {
-  object-fit: contain;
 }
 
 .controlList {
