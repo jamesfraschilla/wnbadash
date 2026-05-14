@@ -337,8 +337,13 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     const nextPreferencesSignature = serializeRefereeHeadshotPreferences(preferences);
     try {
       writeStoredRefereeHeadshotState(overrides, preferences);
+      // Remote save is optional - if it fails, local save still worked
       if (user?.id) {
-        await saveRemoteRefereeHeadshotState(user.id, { overrides, preferences });
+        try {
+          await saveRemoteRefereeHeadshotState(user.id, { overrides, preferences });
+        } catch (remoteError) {
+          console.warn("Remote save failed, but local save succeeded:", remoteError);
+        }
       }
       savedOverridesSignatureRef.current = nextOverridesSignature;
       savedPreferencesSignatureRef.current = nextPreferencesSignature;

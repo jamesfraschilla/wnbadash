@@ -143,13 +143,8 @@
   overflow: hidden;
   border-radius: 18px;
   background: #e8e8e8;
-}
-
-.selectedCropFrame {
-  width: 140px;
-  height: 140px;
-  justify-self: start;
-  border-radius: 14px;
+  width: 84px;
+  height: 84px;
 }
 
 .cropImage,
