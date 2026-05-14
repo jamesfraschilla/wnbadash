@@ -199,6 +199,9 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     : null;
   const selectedUploadedImageId = selectedAssignedNameKey ? buildUploadedRefereeImageId(selectedAssignedNameKey) : "";
   const selectedUsesUploadedImage = selectedPreferredItem?.id === selectedUploadedImageId;
+  const selectedPreviewSrc = selectedUsesUploadedImage && selectedUploadedImage
+    ? selectedUploadedImage.dataUrl
+    : selectedItem?.url || "";
   const currentOverridesSignature = useMemo(() => serializeRefereeHeadshotOverrides(overrides), [overrides]);
   const currentPreferencesSignature = useMemo(() => serializeRefereeHeadshotPreferences(preferences), [preferences]);
   const hasUnsavedChanges =
@@ -577,13 +580,27 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
               <div className={styles.selectedPreview}>
                 <div className={styles.selectedCropFrame}>
                   <img
-                    src={selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.dataUrl : selectedItem.url}
+                    src={selectedPreviewSrc}
                     alt={selectedItem.fullName}
                     className={styles.cropImage}
                     style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
                   />
                 </div>
                 <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
+              </div>
+
+              <div className={styles.fullPreviewPanel}>
+                <div className={styles.fullPreviewHeader}>
+                  <span>Full image preview</span>
+                  <span className={styles.fieldHint}>Shows the uncropped uploaded source.</span>
+                </div>
+                <div className={styles.fullPreviewFrame}>
+                  <img
+                    src={selectedPreviewSrc}
+                    alt={`${selectedItem.fullName} full preview`}
+                    className={styles.fullPreviewImage}
+                  />
+                </div>
               </div>
 
               <div className={styles.controlList}>
