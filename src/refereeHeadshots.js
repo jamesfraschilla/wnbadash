@@ -22,6 +22,7 @@ export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
 
 export const DEFAULT_REFEREE_HEADSHOT_PREFERENCES = {
   aliasesByImageId: {},
+  alternateNamesByNameKey: {},
   preferredImageIdsByNameKey: {},
   hiddenImageIds: [],
   uploadedImagesByNameKey: {},
@@ -106,6 +107,23 @@ export function sanitizeRefereeHeadshotPreferences(rawPreferences) {
     }
   });
 
+  const alternateNamesByNameKey = {};
+  Object.entries(rawPreferences.alternateNamesByNameKey || {}).forEach(([nameKey, value]) => {
+    const normalizedKey = normalizeNameKey(nameKey);
+    if (!normalizedKey) return;
+    const alternateNames = Array.from(
+      new Set(
+        (Array.isArray(value) ? value : [value])
+          .map((entry) => String(entry || "").trim())
+          .filter(Boolean)
+          .filter((entry) => normalizeNameKey(entry) !== normalizedKey)
+      )
+    );
+    if (alternateNames.length) {
+      alternateNamesByNameKey[normalizedKey] = alternateNames;
+    }
+  });
+
   const preferredImageIdsByNameKey = {};
   Object.entries(rawPreferences.preferredImageIdsByNameKey || {}).forEach(([nameKey, imageId]) => {
     const normalizedKey = normalizeNameKey(nameKey);
@@ -138,6 +156,7 @@ export function sanitizeRefereeHeadshotPreferences(rawPreferences) {
 
   return {
     aliasesByImageId,
+    alternateNamesByNameKey,
     preferredImageIdsByNameKey,
     hiddenImageIds,
     uploadedImagesByNameKey,
@@ -246,9 +265,9 @@ export function buildRefereeHeadshotTransform(override, targetSize = REFEREE_HEA
   return `translate(${safe.offsetX}px, ${safe.offsetY}px) scale(${safe.scale * safe.scaleX}, ${safe.scale * safe.scaleY})`;
 }
 
-export function getRefereeHeadshotOverride(fullName, overrides = null) {
+export function getRefereeHeadshotOverride(fullName, overrides = null, preferences = null) {
   const effectiveOverrides = overrides || readStoredRefereeHeadshotOverrides();
-  const key = normalizeNameKey(fullName);
+  const key = resolveRefereeHeadshotOverrideKey(fullName, effectiveOverrides, preferences);
   const raw = effectiveOverrides?.[key];
   if (!raw || typeof raw !== "object") return null;
   return {
@@ -331,6 +350,22 @@ export function getAssignedRefereeNameKey(item, preferences = DEFAULT_REFEREE_HE
   return normalizeNameKey(getAssignedRefereeName(item, preferences));
 }
 
+export function getRefereeAlternateNames(nameKey, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  const normalizedKey = normalizeNameKey(nameKey);
+  if (!normalizedKey) return [];
+  return Array.from(
+    new Set(
+      (Array.isArray(preferences?.alternateNamesByNameKey?.[normalizedKey])
+        ? preferences.alternateNamesByNameKey[normalizedKey]
+        : []
+      )
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .filter((value) => normalizeNameKey(value) !== normalizedKey)
+    )
+  );
+}
+
 export function buildRefereeHeadshotGroups(items, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
   const groups = new Map();
   items.forEach((item) => {
@@ -344,6 +379,50 @@ export function buildRefereeHeadshotGroups(items, preferences = DEFAULT_REFEREE_
     groups.set(nameKey, group);
   });
   return groups;
+}
+
+function buildRefereeHeadshotGroupNameKeys(group, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  const nameKeys = new Set();
+  const addNameKey = (value) => {
+    const normalizedKey = normalizeNameKey(value);
+    if (normalizedKey) {
+      nameKeys.add(normalizedKey);
+    }
+  };
+
+  addNameKey(group?.nameKey);
+  addNameKey(group?.displayName);
+  (group?.items || []).forEach((item) => {
+    addNameKey(item?.nameKey);
+    addNameKey(item?.fullName);
+    addNameKey(getAssignedRefereeName(item, preferences));
+  });
+  getRefereeAlternateNames(group?.nameKey, preferences).forEach(addNameKey);
+
+  return Array.from(nameKeys);
+}
+
+function findRefereeHeadshotGroupByNameKey(nameKey, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  const normalizedKey = normalizeNameKey(nameKey);
+  if (!normalizedKey) return null;
+  const groups = buildRefereeHeadshotGroups(buildRefereeHeadshotImageItems(), preferences);
+  if (groups.has(normalizedKey)) {
+    return groups.get(normalizedKey);
+  }
+  for (const group of groups.values()) {
+    if (buildRefereeHeadshotGroupNameKeys(group, preferences).includes(normalizedKey)) {
+      return group;
+    }
+  }
+  return null;
+}
+
+export function resolveRefereeHeadshotNameKey(fullName, preferences = null) {
+  const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
+  const normalizedKey = normalizeNameKey(fullName);
+  if (!normalizedKey) return "";
+  const group = findRefereeHeadshotGroupByNameKey(normalizedKey, effectivePreferences);
+  return group?.nameKey || normalizedKey;
 }
 
 export function choosePreferredRefereeHeadshot(groupItems, nameKey, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
@@ -388,13 +467,14 @@ export function buildRefereeHeadshotLookup(preferences = DEFAULT_REFEREE_HEADSHO
   const lookup = new Map();
   groups.forEach((group, nameKey) => {
     const uploaded = preferences.uploadedImagesByNameKey?.[nameKey];
+    const groupNameKeys = buildRefereeHeadshotGroupNameKeys(group, preferences);
     if (uploaded?.dataUrl) {
-      lookup.set(nameKey, uploaded.dataUrl);
+      groupNameKeys.forEach((groupNameKey) => lookup.set(groupNameKey, uploaded.dataUrl));
       return;
     }
     const preferred = choosePreferredRefereeHeadshot(group.items, nameKey, preferences);
     if (preferred?.url) {
-      lookup.set(nameKey, preferred.url);
+      groupNameKeys.forEach((groupNameKey) => lookup.set(groupNameKey, preferred.url));
     }
   });
   return lookup;
@@ -403,7 +483,29 @@ export function buildRefereeHeadshotLookup(preferences = DEFAULT_REFEREE_HEADSHO
 export function getRefereeHeadshotUrl(fullName, preferences = null) {
   const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
   const lookup = buildRefereeHeadshotLookup(effectivePreferences);
-  return lookup.get(normalizeNameKey(fullName)) || null;
+  const resolvedKey = resolveRefereeHeadshotNameKey(fullName, effectivePreferences);
+  return lookup.get(resolvedKey) || lookup.get(normalizeNameKey(fullName)) || null;
+}
+
+export function resolveRefereeHeadshotOverrideKey(fullName, overrides = null, preferences = null) {
+  const effectiveOverrides = overrides || readStoredRefereeHeadshotOverrides();
+  const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
+  const normalizedKey = normalizeNameKey(fullName);
+  const resolvedKey = resolveRefereeHeadshotNameKey(fullName, effectivePreferences);
+  const candidates = [];
+
+  if (resolvedKey) candidates.push(resolvedKey);
+  if (normalizedKey && normalizedKey !== resolvedKey) candidates.push(normalizedKey);
+
+  const group = findRefereeHeadshotGroupByNameKey(resolvedKey || normalizedKey, effectivePreferences);
+  (group?.items || []).forEach((item) => {
+    const itemKey = normalizeNameKey(item?.nameKey || item?.fullName);
+    if (itemKey && !candidates.includes(itemKey)) {
+      candidates.push(itemKey);
+    }
+  });
+
+  return candidates.find((key) => effectiveOverrides?.[key]) || resolvedKey || normalizedKey;
 }
 
 export function broadcastRefereeHeadshotChange() {
