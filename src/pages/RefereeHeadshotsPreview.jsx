@@ -493,7 +493,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                     src={selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.dataUrl : selectedItem.url}
                     alt={selectedItem.fullName}
                     className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 200) }}
+                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
                   />
                 </div>
                 <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
@@ -700,7 +700,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                     src={item.url}
                     alt={item.fullName}
                     className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(draft) }}
+                    style={{ transform: buildRefereeHeadshotTransform(draft, 84) }}
                   />
                 </div>
                 <div className={styles.meta}>

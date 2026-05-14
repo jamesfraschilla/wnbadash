@@ -146,8 +146,8 @@
 }
 
 .selectedCropFrame {
-  width: 200px;
-  height: 200px;
+  width: 140px;
+  height: 140px;
   justify-self: start;
   border-radius: 14px;
 }
