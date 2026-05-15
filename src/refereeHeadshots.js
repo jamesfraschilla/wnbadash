@@ -1,4 +1,5 @@
 import { getSavedToolRecordRemote, saveToolRecordRemote } from "./toolVault.js";
+import { supabase } from "./supabaseClient.js";
 
 export const REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY = "referee_headshot_overrides_v1";
 export const REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY = "referee_headshot_preferences_v1";
@@ -6,6 +7,9 @@ export const REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE = 308;
 export const REFEREE_HEADSHOT_CHANGE_EVENT = "referee-headshots-updated";
 export const REFEREE_HEADSHOT_REMOTE_RECORD_ID = "shared-referee-headshots";
 export const REFEREE_HEADSHOT_REMOTE_RECORD_TYPE = "referee_headshots";
+const REFEREE_HEADSHOT_SHARED_TABLE = "rotations_shared_state";
+const REFEREE_HEADSHOT_SHARED_SCOPE_TYPE = "shared_referee_headshots";
+const REFEREE_HEADSHOT_SHARED_SCOPE_KEY = "global";
 
 export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
   ericlewis: {
@@ -28,6 +32,9 @@ export const DEFAULT_REFEREE_HEADSHOT_PREFERENCES = {
   hiddenImageIds: [],
   uploadedImagesByNameKey: {},
 };
+
+let inMemoryRefereeHeadshotOverrides = { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+let inMemoryRefereeHeadshotPreferences = { ...DEFAULT_REFEREE_HEADSHOT_PREFERENCES };
 
 export function buildUploadedRefereeImageId(nameKey) {
   const normalizedKey = normalizeNameKey(nameKey);
@@ -183,43 +190,85 @@ export function serializeRefereeHeadshotPreferences(preferences) {
   return JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences), null, 2);
 }
 
+function rememberRefereeHeadshotOverrides(overrides) {
+  inMemoryRefereeHeadshotOverrides = {
+    ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
+    ...sanitizeRefereeHeadshotOverrides(overrides),
+  };
+  return inMemoryRefereeHeadshotOverrides;
+}
+
+function rememberRefereeHeadshotPreferences(preferences) {
+  inMemoryRefereeHeadshotPreferences = sanitizeRefereeHeadshotPreferences(preferences);
+  return inMemoryRefereeHeadshotPreferences;
+}
+
+export function cacheStoredRefereeHeadshotOverrides(overrides) {
+  const nextOverrides = rememberRefereeHeadshotOverrides(overrides);
+  if (typeof window === "undefined") {
+    return { ok: true, overrides: nextOverrides };
+  }
+  try {
+    window.localStorage.setItem(
+      REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
+      JSON.stringify(sanitizeRefereeHeadshotOverrides(nextOverrides))
+    );
+    return { ok: true, overrides: nextOverrides };
+  } catch (error) {
+    console.warn("Unable to cache referee headshot overrides locally.", error);
+    return { ok: false, error, overrides: nextOverrides };
+  }
+}
+
+export function cacheStoredRefereeHeadshotPreferences(preferences) {
+  const nextPreferences = rememberRefereeHeadshotPreferences(preferences);
+  if (typeof window === "undefined") {
+    return { ok: true, preferences: nextPreferences };
+  }
+  try {
+    window.localStorage.setItem(
+      REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
+      JSON.stringify(sanitizeRefereeHeadshotPreferences(nextPreferences))
+    );
+    return { ok: true, preferences: nextPreferences };
+  } catch (error) {
+    console.warn("Unable to cache referee headshot preferences locally.", error);
+    return { ok: false, error, preferences: nextPreferences };
+  }
+}
+
 export function readStoredRefereeHeadshotPreferences() {
-  if (typeof window === "undefined") return { ...DEFAULT_REFEREE_HEADSHOT_PREFERENCES };
+  if (typeof window === "undefined") return { ...inMemoryRefereeHeadshotPreferences };
   try {
     const raw = window.localStorage.getItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_REFEREE_HEADSHOT_PREFERENCES };
-    return sanitizeRefereeHeadshotPreferences(JSON.parse(raw));
+    if (!raw) return { ...inMemoryRefereeHeadshotPreferences };
+    return rememberRefereeHeadshotPreferences(JSON.parse(raw));
   } catch {
-    return { ...DEFAULT_REFEREE_HEADSHOT_PREFERENCES };
+    return { ...inMemoryRefereeHeadshotPreferences };
   }
 }
 
 export function readStoredRefereeHeadshotOverrides() {
-  if (typeof window === "undefined") return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+  if (typeof window === "undefined") return { ...inMemoryRefereeHeadshotOverrides };
   try {
     const raw = window.localStorage.getItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
-    return {
-      ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
-      ...sanitizeRefereeHeadshotOverrides(JSON.parse(raw)),
-    };
+    if (!raw) return { ...inMemoryRefereeHeadshotOverrides };
+    return rememberRefereeHeadshotOverrides(JSON.parse(raw));
   } catch {
-    return { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
+    return { ...inMemoryRefereeHeadshotOverrides };
   }
 }
 
 export function writeStoredRefereeHeadshotState(overrides, preferences) {
+  const overrideResult = cacheStoredRefereeHeadshotOverrides(overrides);
+  const preferenceResult = cacheStoredRefereeHeadshotPreferences(preferences);
   if (typeof window === "undefined") return { ok: true };
-  try {
-    window.localStorage.setItem(
-      REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
-      serializeRefereeHeadshotOverrides(overrides)
-    );
-    window.localStorage.setItem(
-      REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
-      serializeRefereeHeadshotPreferences(preferences)
-    );
+  if (overrideResult.ok && preferenceResult.ok) {
     return { ok: true };
+  }
+  try {
+    if (!overrideResult.ok) throw overrideResult.error;
+    if (!preferenceResult.ok) throw preferenceResult.error;
   } catch (error) {
     console.warn("Unable to cache referee headshot state locally.", error);
     return { ok: false, error };
@@ -234,6 +283,23 @@ export function readStoredRefereeHeadshotState() {
 }
 
 export async function loadRemoteRefereeHeadshotState(userId) {
+  if (supabase) {
+    const { data, error } = await supabase
+      .from(REFEREE_HEADSHOT_SHARED_TABLE)
+      .select("payload")
+      .eq("scope_type", REFEREE_HEADSHOT_SHARED_SCOPE_TYPE)
+      .eq("scope_key", REFEREE_HEADSHOT_SHARED_SCOPE_KEY)
+      .maybeSingle();
+    if (!error && data?.payload && typeof data.payload === "object") {
+      return {
+        overrides: {
+          ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
+          ...sanitizeRefereeHeadshotOverrides(data.payload.overrides),
+        },
+        preferences: sanitizeRefereeHeadshotPreferences(data.payload.preferences),
+      };
+    }
+  }
   if (!userId) return null;
   const record = await getSavedToolRecordRemote(userId, REFEREE_HEADSHOT_REMOTE_RECORD_ID);
   if (!record?.payload || typeof record.payload !== "object") return null;
@@ -247,15 +313,27 @@ export async function loadRemoteRefereeHeadshotState(userId) {
 }
 
 export async function saveRemoteRefereeHeadshotState(userId, { overrides, preferences }) {
+  const sanitizedPayload = {
+    overrides: sanitizeRefereeHeadshotOverrides(overrides),
+    preferences: sanitizeRefereeHeadshotPreferences(preferences),
+  };
+  if (supabase) {
+    const { error } = await supabase.from(REFEREE_HEADSHOT_SHARED_TABLE).upsert(
+      {
+        scope_type: REFEREE_HEADSHOT_SHARED_SCOPE_TYPE,
+        scope_key: REFEREE_HEADSHOT_SHARED_SCOPE_KEY,
+        payload: sanitizedPayload,
+      },
+      { onConflict: "scope_type,scope_key" }
+    );
+    if (error) throw error;
+  }
   if (!userId) return null;
   return saveToolRecordRemote(userId, {
     id: REFEREE_HEADSHOT_REMOTE_RECORD_ID,
     type: REFEREE_HEADSHOT_REMOTE_RECORD_TYPE,
     title: "Referee Headshots",
-    payload: {
-      overrides: sanitizeRefereeHeadshotOverrides(overrides),
-      preferences: sanitizeRefereeHeadshotPreferences(preferences),
-    },
+    payload: sanitizedPayload,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -263,6 +341,9 @@ export async function saveRemoteRefereeHeadshotState(userId, { overrides, prefer
 export async function syncRemoteRefereeHeadshotState(userId) {
   const remoteState = await loadRemoteRefereeHeadshotState(userId);
   if (!remoteState) return null;
+  if (userId) {
+    saveRemoteRefereeHeadshotState(userId, remoteState).catch(() => {});
+  }
   writeStoredRefereeHeadshotState(remoteState.overrides, remoteState.preferences);
   broadcastRefereeHeadshotChange();
   return remoteState;

@@ -4,6 +4,8 @@ import {
   broadcastRefereeHeadshotChange,
   buildManualRefereeItemId,
   buildUploadedRefereeImageId,
+  cacheStoredRefereeHeadshotOverrides,
+  cacheStoredRefereeHeadshotPreferences,
   buildRefereeHeadshotGroups,
   buildRefereeHeadshotImageItems,
   buildRefereeHeadshotTransform,
@@ -264,11 +266,8 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
 
   // Auto-save to localStorage and broadcast changes when overrides change
   useEffect(() => {
-    try {
-      const serialized = JSON.stringify(sanitizeRefereeHeadshotOverrides(overrides));
-      window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, serialized);
-    } catch (error) {
-      console.warn("Unable to cache referee headshot overrides locally.", error);
+    const cacheResult = cacheStoredRefereeHeadshotOverrides(overrides);
+    if (!cacheResult.ok) {
       setSaveMessage(localCacheWarning);
     }
     broadcastRefereeHeadshotChange();
@@ -276,11 +275,8 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
 
   // Auto-save to localStorage and broadcast changes when preferences change
   useEffect(() => {
-    try {
-      const serialized = JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences));
-      window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, serialized);
-    } catch (error) {
-      console.warn("Unable to cache referee headshot preferences locally.", error);
+    const cacheResult = cacheStoredRefereeHeadshotPreferences(preferences);
+    if (!cacheResult.ok) {
       setUploadMessage(localCacheWarning);
     }
     broadcastRefereeHeadshotChange();
