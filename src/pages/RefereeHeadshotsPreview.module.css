@@ -182,7 +182,7 @@
 }
 
 .cropImage {
-  object-fit: cover;
+  object-fit: contain;
   object-position: center top;
   transform-origin: center center;
 }

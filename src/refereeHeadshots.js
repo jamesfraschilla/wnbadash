@@ -309,7 +309,7 @@ export function buildCanvasAvatarPlacement({
 }) {
   const safeWidth = Math.max(1, Number(sourceWidth) || 1);
   const safeHeight = Math.max(1, Number(sourceHeight) || 1);
-  const coverScale = Math.max(targetSize / safeWidth, targetSize / safeHeight);
+  const containScale = Math.min(targetSize / safeWidth, targetSize / safeHeight);
   const baseScale = Number.isFinite(override?.exportScale)
     ? override.exportScale
     : (Number.isFinite(override?.scale) ? override.scale : 1);
@@ -324,14 +324,14 @@ export function buildCanvasAvatarPlacement({
     offsetY = override.exportOffsetYLandscape;
   }
 
-  const drawWidth = safeWidth * coverScale * scaleX;
-  const drawHeight = safeHeight * coverScale * scaleY;
+  const drawWidth = safeWidth * containScale * scaleX;
+  const drawHeight = safeHeight * containScale * scaleY;
 
   return {
     drawWidth,
     drawHeight,
     drawX: targetX + (targetSize / 2) - (drawWidth / 2) + offsetX,
-    drawY: targetY + (targetSize / 2) - ((targetSize * scaleY) / 2) + offsetY,
+    drawY: targetY + (targetSize / 2) - (drawHeight / 2) + offsetY,
   };
 }
 
