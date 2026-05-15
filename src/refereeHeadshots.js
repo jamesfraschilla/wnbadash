@@ -209,15 +209,21 @@ export function readStoredRefereeHeadshotOverrides() {
 }
 
 export function writeStoredRefereeHeadshotState(overrides, preferences) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
-    serializeRefereeHeadshotOverrides(overrides)
-  );
-  window.localStorage.setItem(
-    REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
-    serializeRefereeHeadshotPreferences(preferences)
-  );
+  if (typeof window === "undefined") return { ok: true };
+  try {
+    window.localStorage.setItem(
+      REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
+      serializeRefereeHeadshotOverrides(overrides)
+    );
+    window.localStorage.setItem(
+      REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
+      serializeRefereeHeadshotPreferences(preferences)
+    );
+    return { ok: true };
+  } catch (error) {
+    console.warn("Unable to cache referee headshot state locally.", error);
+    return { ok: false, error };
+  }
 }
 
 export function readStoredRefereeHeadshotState() {

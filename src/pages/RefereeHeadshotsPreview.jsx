@@ -157,6 +157,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
+  const localCacheWarning = "Browser storage is full. Changes remain in this tab, but click Save Changes before refreshing.";
 
   const allItems = useMemo(() => buildRefereeHeadshotImageItems(preferences), [preferences]);
   const savedOverridesSignatureRef = useRef(serializeRefereeHeadshotOverrides(readInitialOverrides()));
@@ -263,15 +264,25 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
 
   // Auto-save to localStorage and broadcast changes when overrides change
   useEffect(() => {
-    const serialized = JSON.stringify(sanitizeRefereeHeadshotOverrides(overrides));
-    window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, serialized);
+    try {
+      const serialized = JSON.stringify(sanitizeRefereeHeadshotOverrides(overrides));
+      window.localStorage.setItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY, serialized);
+    } catch (error) {
+      console.warn("Unable to cache referee headshot overrides locally.", error);
+      setSaveMessage(localCacheWarning);
+    }
     broadcastRefereeHeadshotChange();
   }, [overrides]);
 
   // Auto-save to localStorage and broadcast changes when preferences change
   useEffect(() => {
-    const serialized = JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences));
-    window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, serialized);
+    try {
+      const serialized = JSON.stringify(sanitizeRefereeHeadshotPreferences(preferences));
+      window.localStorage.setItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY, serialized);
+    } catch (error) {
+      console.warn("Unable to cache referee headshot preferences locally.", error);
+      setUploadMessage(localCacheWarning);
+    }
     broadcastRefereeHeadshotChange();
   }, [preferences]);
 
@@ -490,7 +501,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     const nextOverridesSignature = serializeRefereeHeadshotOverrides(overrides);
     const nextPreferencesSignature = serializeRefereeHeadshotPreferences(preferences);
     try {
-      writeStoredRefereeHeadshotState(overrides, preferences);
+      const localSaveResult = writeStoredRefereeHeadshotState(overrides, preferences);
       // Remote save is optional - if it fails, local save still worked
       if (user?.id) {
         try {
@@ -502,7 +513,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
       savedOverridesSignatureRef.current = nextOverridesSignature;
       savedPreferencesSignatureRef.current = nextPreferencesSignature;
       broadcastRefereeHeadshotChange();
-      setSaveMessage("Saved changes.");
+      setSaveMessage(localSaveResult?.ok ? "Saved changes." : "Saved changes, but browser cache is full.");
     } catch (error) {
       setSaveMessage(error?.message || "Unable to save changes.");
     }
