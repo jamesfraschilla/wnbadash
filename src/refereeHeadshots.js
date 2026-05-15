@@ -35,6 +35,7 @@ export const DEFAULT_REFEREE_HEADSHOT_PREFERENCES = {
 
 let inMemoryRefereeHeadshotOverrides = { ...DEFAULT_REFEREE_HEADSHOT_OVERRIDES };
 let inMemoryRefereeHeadshotPreferences = { ...DEFAULT_REFEREE_HEADSHOT_PREFERENCES };
+let refereeHeadshotCacheSyncBlocked = false;
 
 export function buildUploadedRefereeImageId(nameKey) {
   const normalizedKey = normalizeNameKey(nameKey);
@@ -213,8 +214,10 @@ export function cacheStoredRefereeHeadshotOverrides(overrides) {
       REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
       JSON.stringify(sanitizeRefereeHeadshotOverrides(nextOverrides))
     );
+    refereeHeadshotCacheSyncBlocked = false;
     return { ok: true, overrides: nextOverrides };
   } catch (error) {
+    refereeHeadshotCacheSyncBlocked = true;
     console.warn("Unable to cache referee headshot overrides locally.", error);
     return { ok: false, error, overrides: nextOverrides };
   }
@@ -230,8 +233,10 @@ export function cacheStoredRefereeHeadshotPreferences(preferences) {
       REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
       JSON.stringify(sanitizeRefereeHeadshotPreferences(nextPreferences))
     );
+    refereeHeadshotCacheSyncBlocked = false;
     return { ok: true, preferences: nextPreferences };
   } catch (error) {
+    refereeHeadshotCacheSyncBlocked = true;
     console.warn("Unable to cache referee headshot preferences locally.", error);
     return { ok: false, error, preferences: nextPreferences };
   }
@@ -239,6 +244,9 @@ export function cacheStoredRefereeHeadshotPreferences(preferences) {
 
 export function readStoredRefereeHeadshotPreferences() {
   if (typeof window === "undefined") return { ...inMemoryRefereeHeadshotPreferences };
+  if (refereeHeadshotCacheSyncBlocked) {
+    return { ...inMemoryRefereeHeadshotPreferences };
+  }
   try {
     const raw = window.localStorage.getItem(REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY);
     if (!raw) return { ...inMemoryRefereeHeadshotPreferences };
@@ -250,6 +258,9 @@ export function readStoredRefereeHeadshotPreferences() {
 
 export function readStoredRefereeHeadshotOverrides() {
   if (typeof window === "undefined") return { ...inMemoryRefereeHeadshotOverrides };
+  if (refereeHeadshotCacheSyncBlocked) {
+    return { ...inMemoryRefereeHeadshotOverrides };
+  }
   try {
     const raw = window.localStorage.getItem(REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY);
     if (!raw) return { ...inMemoryRefereeHeadshotOverrides };
