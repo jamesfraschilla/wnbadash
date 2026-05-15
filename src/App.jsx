@@ -21,7 +21,6 @@ const Admin = lazy(() => import("./pages/Admin.jsx"));
 const UserContent = lazy(() => import("./pages/UserContent.jsx"));
 const Tools = lazy(() => import("./pages/Tools.jsx"));
 const TestDashboards = lazy(() => import("./pages/TestDashboards.jsx"));
-const RefereeHeadshotsPreview = lazy(() => import("./pages/RefereeHeadshotsPreview.jsx"));
 
 function getCurrentBundleFingerprint() {
   if (typeof document === "undefined" || typeof window === "undefined") return "";
@@ -272,7 +271,6 @@ export default function App() {
             <Route path="/me" element={<UserContent />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/tools" element={<Tools />} />
-            <Route path="/tools/referee-headshots" element={<RefereeHeadshotsPreview />} />
             <Route path="/tests" element={<TestDashboards />} />
             <Route path="/g/:gameId" element={<Game />} />
             <Route path="/g/:gameId/atc" element={<Game variant="atc" />} />

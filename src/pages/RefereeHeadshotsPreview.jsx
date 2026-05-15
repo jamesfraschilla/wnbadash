@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/useAuth.js";
 import {
   broadcastRefereeHeadshotChange,
+  buildManualRefereeItemId,
   buildUploadedRefereeImageId,
   buildRefereeHeadshotGroups,
   buildRefereeHeadshotImageItems,
@@ -90,6 +91,13 @@ function parseAlternateNames(value, canonicalName = "") {
   );
 }
 
+function getInitials(value) {
+  const parts = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
 async function loadImageFileAsDataUrl(file) {
   const rawDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -129,6 +137,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const [selectedId, setSelectedId] = useState("");
   const [assignmentDraft, setAssignmentDraft] = useState("");
   const [alternateNamesDraft, setAlternateNamesDraft] = useState("");
+  const [manualRefereeDraft, setManualRefereeDraft] = useState("");
   const [showOnlyEdited, setShowOnlyEdited] = useState(false);
   const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
@@ -137,7 +146,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
 
-  const allItems = useMemo(buildRefereeHeadshotImageItems, []);
+  const allItems = useMemo(() => buildRefereeHeadshotImageItems(preferences), [preferences]);
   const savedOverridesSignatureRef = useRef(serializeRefereeHeadshotOverrides(readInitialOverrides()));
   const savedPreferencesSignatureRef = useRef(serializeRefereeHeadshotPreferences(readInitialPreferences()));
 
@@ -207,6 +216,21 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const hasUnsavedChanges =
     currentOverridesSignature !== savedOverridesSignatureRef.current
     || currentPreferencesSignature !== savedPreferencesSignatureRef.current;
+
+  const addManualReferee = () => {
+    const displayName = String(manualRefereeDraft || "").trim();
+    const nameKey = normalizeNameKey(displayName);
+    if (!displayName || !nameKey) return;
+    setPreferences((current) => sanitizeRefereeHeadshotPreferences({
+      ...current,
+      manualRefereesByNameKey: {
+        ...(current.manualRefereesByNameKey || {}),
+        [nameKey]: displayName,
+      },
+    }));
+    setSelectedId(buildManualRefereeItemId(nameKey));
+    setManualRefereeDraft("");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -524,6 +548,22 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
         />
         <input
           className={styles.search}
+          type="text"
+          value={manualRefereeDraft}
+          onChange={(event) => setManualRefereeDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addManualReferee();
+            }
+          }}
+          placeholder="Add new referee"
+        />
+        <button type="button" className={styles.secondaryButton} onClick={addManualReferee}>
+          Add Referee
+        </button>
+        <input
+          className={styles.search}
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -579,12 +619,16 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
 
               <div className={styles.selectedPreview}>
                 <div className={styles.selectedCropFrame}>
-                  <img
-                    src={selectedPreviewSrc}
-                    alt={selectedItem.fullName}
-                    className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
-                  />
+                  {selectedPreviewSrc ? (
+                    <img
+                      src={selectedPreviewSrc}
+                      alt={selectedItem.fullName}
+                      className={styles.cropImage}
+                      style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
+                    />
+                  ) : (
+                    <div className={styles.emptyAvatar}>{getInitials(selectedAssignedName || selectedItem.fullName)}</div>
+                  )}
                 </div>
                 <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
               </div>
@@ -595,11 +639,18 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                   <span className={styles.fieldHint}>Shows the uncropped uploaded source.</span>
                 </div>
                 <div className={styles.fullPreviewFrame}>
-                  <img
-                    src={selectedPreviewSrc}
-                    alt={`${selectedItem.fullName} full preview`}
-                    className={styles.fullPreviewImage}
-                  />
+                  {selectedPreviewSrc ? (
+                    <img
+                      src={selectedPreviewSrc}
+                      alt={`${selectedItem.fullName} full preview`}
+                      className={styles.fullPreviewImage}
+                    />
+                  ) : (
+                    <div className={styles.emptyAvatarLarge}>{getInitials(selectedAssignedName || selectedItem.fullName)}</div>
+                  )}
+                </div>
+                <div className={styles.previewLabel}>
+                  Source File: {selectedUsesUploadedImage && selectedUploadedImage ? selectedUploadedImage.fileName : (selectedItem.fileName || "No photo uploaded")}
                 </div>
               </div>
 
@@ -782,7 +833,11 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                           className={`${styles.groupItem} ${item.id === selectedItem.id ? styles.groupItemSelected : ""}`.trim()}
                           onClick={() => setSelectedId(item.id)}
                         >
-                          <img src={item.url} alt={item.fullName} className={styles.groupThumb} />
+                          {item.url ? (
+                            <img src={item.url} alt={item.fullName} className={styles.groupThumb} />
+                          ) : (
+                            <div className={`${styles.groupThumb} ${styles.emptyThumb}`}>{getInitials(getAssignedRefereeName(item, preferences))}</div>
+                          )}
                           <div className={styles.groupMeta}>
                             <span>{item.fileName}</span>
                             <span>{item.source}</span>
@@ -814,12 +869,16 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                 onClick={() => setSelectedId(item.id)}
               >
                 <div className={styles.cropFrame}>
-                  <img
-                    src={item.url}
-                    alt={item.fullName}
-                    className={styles.cropImage}
-                    style={{ transform: buildRefereeHeadshotTransform(draft, 84) }}
-                  />
+                  {item.url ? (
+                    <img
+                      src={item.url}
+                      alt={item.fullName}
+                      className={styles.cropImage}
+                      style={{ transform: buildRefereeHeadshotTransform(draft, 84) }}
+                    />
+                  ) : (
+                    <div className={styles.emptyAvatar}>{getInitials(getAssignedRefereeName(item, preferences))}</div>
+                  )}
                 </div>
                 <div className={styles.meta}>
                   <div className={styles.name}>{item.fullName}</div>

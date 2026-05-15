@@ -23,6 +23,7 @@ export const DEFAULT_REFEREE_HEADSHOT_OVERRIDES = {
 export const DEFAULT_REFEREE_HEADSHOT_PREFERENCES = {
   aliasesByImageId: {},
   alternateNamesByNameKey: {},
+  manualRefereesByNameKey: {},
   preferredImageIdsByNameKey: {},
   hiddenImageIds: [],
   uploadedImagesByNameKey: {},
@@ -31,6 +32,11 @@ export const DEFAULT_REFEREE_HEADSHOT_PREFERENCES = {
 export function buildUploadedRefereeImageId(nameKey) {
   const normalizedKey = normalizeNameKey(nameKey);
   return normalizedKey ? `uploaded:${normalizedKey}` : "";
+}
+
+export function buildManualRefereeItemId(nameKey) {
+  const normalizedKey = normalizeNameKey(nameKey);
+  return normalizedKey ? `manual:${normalizedKey}` : "";
 }
 
 const IMAGE_MODULES = import.meta.glob(
@@ -124,6 +130,15 @@ export function sanitizeRefereeHeadshotPreferences(rawPreferences) {
     }
   });
 
+  const manualRefereesByNameKey = {};
+  Object.entries(rawPreferences.manualRefereesByNameKey || {}).forEach(([nameKey, displayName]) => {
+    const normalizedKey = normalizeNameKey(nameKey);
+    const normalizedDisplayName = String(displayName || "").trim();
+    if (normalizedKey && normalizedDisplayName) {
+      manualRefereesByNameKey[normalizedKey] = normalizedDisplayName;
+    }
+  });
+
   const preferredImageIdsByNameKey = {};
   Object.entries(rawPreferences.preferredImageIdsByNameKey || {}).forEach(([nameKey, imageId]) => {
     const normalizedKey = normalizeNameKey(nameKey);
@@ -157,6 +172,7 @@ export function sanitizeRefereeHeadshotPreferences(rawPreferences) {
   return {
     aliasesByImageId,
     alternateNamesByNameKey,
+    manualRefereesByNameKey,
     preferredImageIdsByNameKey,
     hiddenImageIds,
     uploadedImagesByNameKey,
@@ -319,8 +335,8 @@ export function buildCanvasAvatarPlacement({
   };
 }
 
-export function buildRefereeHeadshotImageItems() {
-  return Object.entries(IMAGE_MODULES)
+export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  const assetItems = Object.entries(IMAGE_MODULES)
     .map(([path, url]) => {
       const fileName = path.split("/").pop() || "";
       const fullName = fileName.replace(/\.(jpe?g)$/i, "");
@@ -340,9 +356,33 @@ export function buildRefereeHeadshotImageItems() {
       if (a.isDuplicate !== b.isDuplicate) return a.isDuplicate ? 1 : -1;
       return a.fullName.localeCompare(b.fullName);
     });
+
+  const manualItems = Object.entries(preferences.manualRefereesByNameKey || {})
+    .map(([nameKey, displayName]) => {
+      const normalizedKey = normalizeNameKey(nameKey);
+      const uploaded = preferences.uploadedImagesByNameKey?.[normalizedKey];
+      return {
+        id: buildManualRefereeItemId(normalizedKey),
+        path: "",
+        fileName: String(displayName || "").trim(),
+        fullName: String(displayName || "").trim(),
+        nameKey: normalizedKey,
+        url: String(uploaded?.dataUrl || "").trim(),
+        source: "manual",
+        isDuplicate: false,
+        isManual: true,
+      };
+    })
+    .filter((item) => item.nameKey && item.fullName)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+  return [...assetItems, ...manualItems];
 }
 
 export function getAssignedRefereeName(item, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  if (item?.isManual) {
+    return String(preferences?.manualRefereesByNameKey?.[item.nameKey] || item?.fullName || "").trim();
+  }
   return String(preferences?.aliasesByImageId?.[item?.id] || item?.fullName || "").trim();
 }
 
@@ -405,7 +445,7 @@ function buildRefereeHeadshotGroupNameKeys(group, preferences = DEFAULT_REFEREE_
 function findRefereeHeadshotGroupByNameKey(nameKey, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
   const normalizedKey = normalizeNameKey(nameKey);
   if (!normalizedKey) return null;
-  const groups = buildRefereeHeadshotGroups(buildRefereeHeadshotImageItems(), preferences);
+  const groups = buildRefereeHeadshotGroups(buildRefereeHeadshotImageItems(preferences), preferences);
   if (groups.has(normalizedKey)) {
     return groups.get(normalizedKey);
   }
@@ -462,7 +502,7 @@ export function choosePreferredRefereeHeadshot(groupItems, nameKey, preferences 
 }
 
 export function buildRefereeHeadshotLookup(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
-  const items = buildRefereeHeadshotImageItems();
+  const items = buildRefereeHeadshotImageItems(preferences);
   const groups = buildRefereeHeadshotGroups(items, preferences);
   const lookup = new Map();
   groups.forEach((group, nameKey) => {
