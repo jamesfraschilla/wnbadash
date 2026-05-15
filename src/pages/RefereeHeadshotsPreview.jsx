@@ -98,6 +98,18 @@ function getInitials(value) {
   return `${parts[0].slice(0, 1)}${parts[parts.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
+function sanitizeCopiedCropSettings(rawValue) {
+  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) return null;
+  const next = {
+    scale: Number.isFinite(Number(rawValue.scale)) ? Number(rawValue.scale) : 1,
+    offsetX: Number.isFinite(Number(rawValue.offsetX)) ? Number(rawValue.offsetX) : 0,
+    offsetY: Number.isFinite(Number(rawValue.offsetY)) ? Number(rawValue.offsetY) : 0,
+    scaleX: Number.isFinite(Number(rawValue.scaleX)) ? Number(rawValue.scaleX) : 1,
+    scaleY: Number.isFinite(Number(rawValue.scaleY)) ? Number(rawValue.scaleY) : 1,
+  };
+  return next;
+}
+
 async function loadImageFileAsDataUrl(file) {
   const rawDataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -420,6 +432,39 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
       setCopyMessage("Copied image preferences JSON.");
     } catch {
       setCopyMessage("Clipboard copy failed.");
+    }
+  };
+
+  const handleCopySelectedCropSettings = async () => {
+    const payload = JSON.stringify(sanitizeCopiedCropSettings(selectedDraft), null, 2);
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyMessage("Copied selected crop settings.");
+    } catch {
+      setCopyMessage("Clipboard copy failed.");
+    }
+  };
+
+  const handlePasteSelectedCropSettings = async () => {
+    if (!selectedCanonicalOverrideKey) return;
+    try {
+      const rawText = await navigator.clipboard.readText();
+      const parsed = JSON.parse(rawText);
+      const nextCropSettings = sanitizeCopiedCropSettings(parsed);
+      if (!nextCropSettings) {
+        setCopyMessage("Clipboard does not contain crop settings.");
+        return;
+      }
+      setOverrides((current) => ({
+        ...current,
+        [selectedCanonicalOverrideKey]: {
+          ...(current[selectedCanonicalOverrideKey] || current[selectedOverrideKey] || {}),
+          ...nextCropSettings,
+        },
+      }));
+      setCopyMessage("Pasted crop settings.");
+    } catch {
+      setCopyMessage("Unable to paste crop settings.");
     }
   };
 
@@ -783,6 +828,12 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
               <div className={styles.panelActions}>
                 <button type="button" className={styles.secondaryButton} onClick={handleUploadButtonClick}>
                   Upload Replacement
+                </button>
+                <button type="button" className={styles.secondaryButton} onClick={handleCopySelectedCropSettings}>
+                  Copy Crop Settings
+                </button>
+                <button type="button" className={styles.secondaryButton} onClick={handlePasteSelectedCropSettings}>
+                  Paste Crop Settings
                 </button>
                 {selectedUploadedImage ? (
                   <button type="button" className={styles.secondaryButton} onClick={removeUploadedReplacement}>
