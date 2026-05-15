@@ -126,16 +126,6 @@
   font-weight: 700;
 }
 
-.previewWorkspace {
-  display: grid;
-  gap: 16px;
-}
-
-.editingPreviewPanel {
-  display: grid;
-  gap: 10px;
-}
-
 .selectedPreview {
   display: grid;
   gap: 12px;
@@ -174,15 +164,6 @@
   color: var(--text);
 }
 
-.editingCropFrame {
-  position: relative;
-  overflow: hidden;
-  border-radius: 22px;
-  background: #e8e8e8;
-  width: min(100%, 308px);
-  aspect-ratio: 1;
-}
-
 .selectedCropFrame,
 .cropFrame {
   position: relative;
@@ -207,7 +188,6 @@
 }
 
 .emptyAvatar,
-.emptyAvatarEditor,
 .emptyAvatarLarge,
 .emptyThumb {
   display: grid;
@@ -221,12 +201,6 @@
   width: 100%;
   height: 100%;
   font-size: 1rem;
-}
-
-.emptyAvatarEditor {
-  width: 100%;
-  height: 100%;
-  font-size: 3rem;
 }
 
 .emptyAvatarLarge {

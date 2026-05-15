@@ -617,44 +617,26 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                 </div>
               </div>
 
-              <div className={styles.previewWorkspace}>
-                <div className={styles.editingPreviewPanel}>
-                  <div className={styles.previewLabel}>Crop editor</div>
-                  <div className={styles.editingCropFrame}>
-                    {selectedPreviewSrc ? (
-                      <img
-                        src={selectedPreviewSrc}
-                        alt={`${selectedItem.fullName} crop editor`}
-                        className={styles.cropImage}
-                        style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 308) }}
-                      />
-                    ) : (
-                      <div className={styles.emptyAvatarEditor}>{getInitials(selectedAssignedName || selectedItem.fullName)}</div>
-                    )}
-                  </div>
-                  <div className={styles.fieldHint}>Use this larger square stage to position the final headshot crop.</div>
+              <div className={styles.selectedPreview}>
+                <div className={styles.previewLabel}>Final 84x84 preview</div>
+                <div className={styles.selectedCropFrame}>
+                  {selectedPreviewSrc ? (
+                    <img
+                      src={selectedPreviewSrc}
+                      alt={selectedItem.fullName}
+                      className={styles.cropImage}
+                      style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
+                    />
+                  ) : (
+                    <div className={styles.emptyAvatar}>{getInitials(selectedAssignedName || selectedItem.fullName)}</div>
+                  )}
                 </div>
-                <div className={styles.selectedPreview}>
-                  <div className={styles.previewLabel}>Final 84x84 preview</div>
-                  <div className={styles.selectedCropFrame}>
-                    {selectedPreviewSrc ? (
-                      <img
-                        src={selectedPreviewSrc}
-                        alt={selectedItem.fullName}
-                        className={styles.cropImage}
-                        style={{ transform: buildRefereeHeadshotTransform(selectedDraft, 84) }}
-                      />
-                    ) : (
-                      <div className={styles.emptyAvatar}>{getInitials(selectedAssignedName || selectedItem.fullName)}</div>
-                    )}
-                  </div>
-                  <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
-                </div>
+                <div className={styles.previewLabel}>{selectedAssignedName || selectedItem.fullName}</div>
               </div>
 
               <div className={styles.fullPreviewPanel}>
                 <div className={styles.fullPreviewHeader}>
-                  <span>Full image preview</span>
+                  <span>Original image</span>
                   <span className={styles.fieldHint}>Shows the uncropped uploaded source.</span>
                 </div>
                 <div className={styles.fullPreviewFrame}>
