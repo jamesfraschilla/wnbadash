@@ -2141,118 +2141,121 @@ export default function Game({ variant = "full" }) {
       </div>
       <div className={styles.contentAlign}>
         <section className={styles.scoreboard}>
-          <div className={`${styles.teamLogoColumn} ${styles.awayLogoColumn}`}>
-            <img
-              className={styles.teamLogo}
-              src={teamLogoUrl(awayTeam.teamId)}
-              alt={`${awayTeam.teamName} logo`}
-            />
-            {(timeouts || isPregame) && (
-              <div className={styles.teamMetaRow}>
-                {renderTimeouts(awayTimeoutsRemaining, showResetIndicator, awayResetUsed)}
-              </div>
-          )}
-          {(challenges || isPregame) && (
-            <div className={styles.teamMetaRow}>
-              {renderChallenges(awayChallenges)}
+          <div className={`${styles.teamSide} ${styles.awaySide}`}>
+            <div className={styles.teamLogoColumn}>
+              <img
+                className={styles.teamLogo}
+                src={teamLogoUrl(awayTeam.teamId)}
+                alt={`${awayTeam.teamName} logo`}
+              />
             </div>
-          )}
-          <div className={styles.teamMetaRow}>
-            {renderFouls(awayFoulsDisplay)}
-          </div>
-        </div>
-
-          <div className={`${styles.teamStatsColumn} ${styles.awayStatsColumn}`}>
-          <div className={styles.teamTricode}>{awayTeam.teamTricode}</div>
-          <div className={styles.teamScore}>{displayAwayScore}</div>
-          {showExtras && (
-            <>
-              <div className={styles.statValue}>{ortgAway}</div>
-              <div className={styles.statValue}>{netAway >= 0 ? "+" : ""}{netAway}</div>
-            </>
-          )}
-          {showExtras && <div className={styles.statValue}>{formatChancesValue(displayAwayChances)}</div>}
+            <div className={styles.teamInfoStack}>
+              <div className={styles.teamScore}>{displayAwayScore}</div>
+              <div className={styles.teamMetaStack}>
+                {(timeouts || isPregame) && (
+                  <div className={styles.teamMetaRow}>
+                    {renderTimeouts(awayTimeoutsRemaining, showResetIndicator, awayResetUsed)}
+                  </div>
+                )}
+                <div className={styles.teamMetaRow}>
+                  {renderFouls(awayFoulsDisplay)}
+                </div>
+                {(challenges || isPregame) && (
+                  <div className={styles.teamMetaRow}>
+                    {renderChallenges(awayChallenges)}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className={styles.centerColumn}>
-            <div className={styles.vs}>vs</div>
             <div className={styles.dash}>-</div>
-          {showExtras && (
-            <>
-              <div className={styles.statLabel}>ORTG</div>
-              <div className={styles.statLabel}>NET</div>
-            </>
-          )}
-          {showExtras && <div className={styles.statLabel}>CHANCES</div>}
-          {showExtras && (
-            <div className={styles.paceGroup}>
-              <div className={styles.paceRow}>PACE: {displayPaceValue.toFixed(1)}</div>
-              <div className={styles.paceSubRow}>PACE/40: {displayPace40Value.toFixed(1)}</div>
-            </div>
-          )}
-          <div className={`${styles.status} ${isLive ? styles.statusLive : ""}`}>
-            {status || game.gameStatusText}
-          </div>
-          {clock && <div className={styles.clock}>{clock}</div>}
-          {isAtc && (
-            <div className={styles.possessionTable}>
-              <div className={styles.possessionRow}>
-                {["Q1", "Q2", "Q3", "Q4"].map((label) => (
-                  <div key={label} className={styles.possessionCell}>{label}</div>
-                ))}
+            {showExtras && (
+              <div className={styles.centerMetrics}>
+                <div className={styles.centerMetricRow}>
+                  <span className={styles.statValue}>{ortgAway}</span>
+                  <span className={styles.statLabel}>ORTG</span>
+                  <span className={styles.statValue}>{ortgHome}</span>
+                </div>
+                <div className={styles.centerMetricDivider} />
+                <div className={styles.centerMetricRow}>
+                  <span className={styles.statValue}>{netAway >= 0 ? "+" : ""}{netAway}</span>
+                  <span className={styles.statLabel}>NET</span>
+                  <span className={styles.statValue}>{netHome >= 0 ? "+" : ""}{netHome}</span>
+                </div>
+                <div className={styles.centerMetricDivider} />
+                <div className={styles.centerMetricRow}>
+                  <span className={styles.statValue}>{formatChancesValue(displayAwayChances)}</span>
+                  <span className={styles.statLabel}>CHANCES</span>
+                  <span className={styles.statValue}>{formatChancesValue(displayHomeChances)}</span>
+                </div>
               </div>
-              <div className={`${styles.possessionRow} ${styles.possessionRowTeams}`}>
-                {possessionTeams.map((team, index) => (
-                  <div key={`possession-${index}`} className={styles.possessionCell}>
-                    {team ? (
-                      <img
-                        className={styles.possessionLogo}
-                        src={teamLogoUrl(team.teamId)}
-                        alt={`${team.teamName} logo`}
-                      />
-                    ) : (
-                      <div className={styles.possessionPlaceholder} />
-                    )}
+            )}
+            {showExtras && (
+              <div className={styles.paceGroup}>
+                <div className={styles.paceRow}>PACE {displayPaceValue.toFixed(1)}</div>
+                <div className={styles.paceSubRow}>PACE/40 {displayPace40Value.toFixed(1)}</div>
+              </div>
+            )}
+            <div className={`${styles.status} ${isLive ? styles.statusLive : ""}`}>
+              {status || game.gameStatusText}
+            </div>
+            {clock && <div className={styles.clock}>{clock}</div>}
+            {isAtc && (
+              <div className={styles.possessionTable}>
+                <div className={styles.possessionRow}>
+                  {["Q1", "Q2", "Q3", "Q4"].map((label) => (
+                    <div key={label} className={styles.possessionCell}>{label}</div>
+                  ))}
+                </div>
+                <div className={`${styles.possessionRow} ${styles.possessionRowTeams}`}>
+                  {possessionTeams.map((team, index) => (
+                    <div key={`possession-${index}`} className={styles.possessionCell}>
+                      {team ? (
+                        <img
+                          className={styles.possessionLogo}
+                          src={teamLogoUrl(team.teamId)}
+                          alt={`${team.teamName} logo`}
+                        />
+                      ) : (
+                        <div className={styles.possessionPlaceholder} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`${styles.teamSide} ${styles.homeSide}`}>
+            <div className={styles.teamInfoStack}>
+              <div className={styles.teamScore}>{displayHomeScore}</div>
+              <div className={styles.teamMetaStack}>
+                {(timeouts || isPregame) && (
+                  <div className={styles.teamMetaRow}>
+                    {renderTimeouts(homeTimeoutsRemaining, showResetIndicator, homeResetUsed)}
                   </div>
-                ))}
+                )}
+                <div className={styles.teamMetaRow}>
+                  {renderFouls(homeFoulsDisplay)}
+                </div>
+                {(challenges || isPregame) && (
+                  <div className={styles.teamMetaRow}>
+                    {renderChallenges(homeChallenges)}
+                  </div>
+                )}
               </div>
             </div>
-          )}
-          </div>
-
-          <div className={`${styles.teamStatsColumn} ${styles.homeStatsColumn}`}>
-          <div className={styles.teamTricode}>{homeTeam.teamTricode}</div>
-          <div className={styles.teamScore}>{displayHomeScore}</div>
-          {showExtras && (
-            <>
-              <div className={styles.statValue}>{ortgHome}</div>
-              <div className={styles.statValue}>{netHome >= 0 ? "+" : ""}{netHome}</div>
-            </>
-          )}
-          {showExtras && <div className={styles.statValue}>{formatChancesValue(displayHomeChances)}</div>}
-          </div>
-
-          <div className={`${styles.teamLogoColumn} ${styles.homeLogoColumn}`}>
-            <img
-              className={styles.teamLogo}
-              src={teamLogoUrl(homeTeam.teamId)}
-              alt={`${homeTeam.teamName} logo`}
-            />
-            {(timeouts || isPregame) && (
-              <div className={styles.teamMetaRow}>
-                {renderTimeouts(homeTimeoutsRemaining, showResetIndicator, homeResetUsed)}
-              </div>
-          )}
-          {(challenges || isPregame) && (
-            <div className={styles.teamMetaRow}>
-              {renderChallenges(homeChallenges)}
+            <div className={styles.teamLogoColumn}>
+              <img
+                className={styles.teamLogo}
+                src={teamLogoUrl(homeTeam.teamId)}
+                alt={`${homeTeam.teamName} logo`}
+              />
             </div>
-          )}
-          <div className={styles.teamMetaRow}>
-            {renderFouls(homeFoulsDisplay)}
           </div>
-        </div>
-      </section>
+        </section>
 
       {showExtras && (
         <>
