@@ -2,6 +2,9 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   display: inline-block;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 .table {
@@ -104,16 +107,18 @@
 }
 
 .shadedColumn {
-  background-color: var(--panel);
+  background-color: color-mix(in srgb, var(--panel-strong) 72%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
 }
 
 .table tbody tr:hover .shadedColumn {
-  background-color: var(--panel-hover);
+  background-color: color-mix(in srgb, var(--row-hover) 88%, var(--panel-strong));
 }
 
 .totalsRow {
   font-weight: 600;
   border-top: 1px solid var(--border);
+  background-color: color-mix(in srgb, var(--panel-strong) 55%, transparent);
 }
 
 .totalsRowAtc {
@@ -123,6 +128,7 @@
 .totalsPercentRow {
   font-size: 12px;
   color: var(--muted);
+  background-color: color-mix(in srgb, var(--panel-strong) 28%, transparent);
 }
 
 .pfBlack {

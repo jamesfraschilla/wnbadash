@@ -46,6 +46,12 @@ const disruptionColumns = [
     format: (_, value) => value ?? 0,
     isDerived: true,
   },
+  {
+    key: "forcedTurnovers",
+    label: "Forced TOs",
+    format: (_, value) => value ?? 0,
+    isDerived: true,
+  },
 ];
 
 export default function CreatingDisruption({
@@ -57,6 +63,8 @@ export default function CreatingDisruption({
   homeDisruptions,
   awayKills,
   homeKills,
+  awayForcedTurnovers,
+  homeForcedTurnovers,
 }) {
   if (!awayStats || !homeStats) return null;
 
@@ -68,6 +76,7 @@ export default function CreatingDisruption({
   const derivedValues = {
     disruptions: { away: awayDisruptions, home: homeDisruptions },
     kills: { away: awayKills, home: homeKills },
+    forcedTurnovers: { away: awayForcedTurnovers, home: homeForcedTurnovers },
   };
 
   const renderSection = (title, columns) => (
