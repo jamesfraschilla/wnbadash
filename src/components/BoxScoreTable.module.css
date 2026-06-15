@@ -19,6 +19,7 @@
 .headerRow {
   border-top: 2px solid var(--text);
   border-bottom: 2px solid var(--text);
+  background-color: color-mix(in srgb, var(--panel-strong) 42%, transparent);
 }
 
 .table th,
@@ -30,7 +31,7 @@
 }
 
 .atcSeparator {
-  border-right: 0.5px solid #9ca3af;
+  border-right: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
 }
 
 .playerNumberCol {
@@ -41,7 +42,7 @@
   padding-right: 6px;
   position: sticky;
   left: 0;
-  background-color: var(--bg);
+  background-color: color-mix(in srgb, var(--panel) 86%, var(--bg));
   z-index: 1;
 }
 
@@ -52,7 +53,7 @@
   padding-right: 20px;
   position: sticky;
   left: var(--player-number-width);
-  background-color: var(--bg);
+  background-color: color-mix(in srgb, var(--panel) 86%, var(--bg));
   z-index: 1;
 }
 
@@ -64,6 +65,7 @@
 .table th.playerNumberCol,
 .table th.playerNameCol {
   z-index: 2;
+  background-color: color-mix(in srgb, var(--panel-strong) 78%, var(--bg));
 }
 
 .teamLogoHeader {
@@ -104,6 +106,10 @@
 
 .table tbody tr:hover {
   background-color: var(--row-hover);
+}
+
+.table tbody tr + tr {
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
 }
 
 .shadedColumn {
