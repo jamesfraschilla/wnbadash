@@ -1383,6 +1383,21 @@ function leaderPointsLabel(features: ReturnType<typeof buildFeaturePayload>) {
   return `${info.leaderPoints}-${info.trailerPoints}`;
 }
 
+function buildEdgeText(
+  home: ReturnType<typeof buildFeaturePayload>["teams"]["home"],
+  away: ReturnType<typeof buildFeaturePayload>["teams"]["away"],
+  homeValue: number,
+  awayValue: number,
+  label: string,
+) {
+  if (homeValue === awayValue) return null;
+  const leader = homeValue > awayValue ? home : away;
+  const trailer = homeValue > awayValue ? away : home;
+  const leaderValue = Math.max(homeValue, awayValue);
+  const trailerValue = Math.min(homeValue, awayValue);
+  return `${leader.tricode} ${label} edge: ${leaderValue}-${trailerValue}.`;
+}
+
 function buildTemplateSections(features: ReturnType<typeof buildFeaturePayload>) {
   return buildInsightSignals(features)
     .sort((a, b) => b.strength - a.strength)
@@ -1414,36 +1429,30 @@ function buildSwingFactors(features: ReturnType<typeof buildFeaturePayload>) {
     {
       label: "paint",
       value: home.totals.paintPoints - away.totals.paintPoints,
-      text: `${home.tricode} paint points edge: ${home.totals.paintPoints}-${away.totals.paintPoints}.`,
+      text: buildEdgeText(home, away, home.totals.paintPoints, away.totals.paintPoints, "paint points"),
     },
     {
       label: "transition",
       value: home.totals.transitionPoints - away.totals.transitionPoints,
-      text: `${home.tricode} transition points edge: ${home.totals.transitionPoints}-${away.totals.transitionPoints}.`,
+      text: buildEdgeText(home, away, home.totals.transitionPoints, away.totals.transitionPoints, "transition points"),
     },
     {
       label: "secondChance",
       value: home.totals.secondChancePoints - away.totals.secondChancePoints,
-      text: `${home.tricode} second-chance points edge: ${home.totals.secondChancePoints}-${away.totals.secondChancePoints}.`,
+      text: buildEdgeText(home, away, home.totals.secondChancePoints, away.totals.secondChancePoints, "second-chance points"),
     },
     {
       label: "pointsOffTurnovers",
       value: home.totals.pointsOffTurnovers - away.totals.pointsOffTurnovers,
-      text: `${home.tricode} points off turnovers edge: ${home.totals.pointsOffTurnovers}-${away.totals.pointsOffTurnovers}.`,
+      text: buildEdgeText(home, away, home.totals.pointsOffTurnovers, away.totals.pointsOffTurnovers, "points off turnovers"),
     },
   ]
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
-    .filter((item) => item.value !== 0)
+    .filter((item) => item.value !== 0 && item.text)
     .slice(0, 3)
-    .map((item) => item.text);
+    .map((item) => item.text as string);
 
-  const runNotes = [features.teams.home, features.teams.away]
-    .filter((team) => team.largestRun?.points)
-    .sort((a, b) => safeNumber(b.largestRun?.points, 0) - safeNumber(a.largestRun?.points, 0))
-    .slice(0, 1)
-    .map((team) => `${team.tricode} had the largest unanswered run at ${team.largestRun?.points}-0 from ${team.largestRun?.startLabel} to ${team.largestRun?.endLabel}.`);
-
-  return [...runNotes, ...factors].slice(0, 4);
+  return factors.slice(0, 4);
 }
 
 function buildStatOutliers(features: ReturnType<typeof buildFeaturePayload>) {
@@ -1503,6 +1512,8 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
     "You are a basketball analyst.",
     "Use only the structured game data provided.",
     "Do not invent stats, possessions, or player impact claims.",
+    "Do not overstate player scoring share; if a player scored 10 points for a team that scored 38, do not say he scored all of the team's points.",
+    "When citing team edges in categories like paint points or points off turnovers, name the team with the higher value.",
     "Decide what most shaped this selected stretch instead of forcing equal attention to every category.",
     "Vary sentence structure and avoid repeating the same opening pattern from one answer to the next.",
     "If one theme clearly dominates, center the answer on that theme.",

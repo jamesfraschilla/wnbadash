@@ -708,7 +708,7 @@ function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload, advancedBoxSc
     homeTeam,
     awayTeam,
     officials,
-    callsAgainst: {},
+    callsAgainst: null,
     timeouts: {
       home: numberValue(homeTeamSource?.timeoutsRemaining, homeTeam.timeoutsRemaining),
       away: numberValue(awayTeamSource?.timeoutsRemaining, awayTeam.timeoutsRemaining),
@@ -784,7 +784,7 @@ async function buildPregameWnbaGame(game, seasonYear = "") {
   return {
     ...normalized,
     officials,
-    callsAgainst: {},
+    callsAgainst: null,
     timeouts: { home: 7, away: 7 },
     challenges: {
       home: { challengesTotal: 0, challengesWon: 0 },

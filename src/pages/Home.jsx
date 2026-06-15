@@ -35,9 +35,6 @@ export default function Home() {
     return (
       <div className={styles.emptyState}>
         <div className={styles.stateMessage}>No games scheduled for this date.</div>
-        <Link className={styles.testLink} to="/tests">
-          Open Historical Test Dashboards
-        </Link>
       </div>
     );
   }
@@ -116,9 +113,6 @@ export default function Home() {
         <button type="button" className={styles.dateButton} onClick={() => changeDateBy(1)}>
           Next
         </button>
-        <Link className={styles.testLinkInline} to="/tests">
-          Historical Tests
-        </Link>
       </div>
       <div className={styles.gameList}>{renderGames(wnbaGames)}</div>
     </div>

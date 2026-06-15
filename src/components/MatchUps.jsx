@@ -666,6 +666,20 @@ function buildStarterSlotIds(teamBoxPlayers) {
   return starters.slice(0, ROW_SLOT_COUNT);
 }
 
+function buildStarterResetSlotIds(teamBoxPlayers, row, profileMap) {
+  const starterSlotIds = buildStarterSlotIds(teamBoxPlayers).filter((personId) => row.rosterMap.has(personId));
+  if (starterSlotIds.length >= ROW_SLOT_COUNT) {
+    return sortRowSlotIdsByHeight(row, starterSlotIds, profileMap);
+  }
+
+  const fallbackSlotIds = (teamBoxPlayers || [])
+    .map((player) => String(player?.personId || ""))
+    .filter((personId) => personId && row.rosterMap.has(personId))
+    .slice(0, ROW_SLOT_COUNT);
+
+  return sortRowSlotIdsByHeight(row, fallbackSlotIds, profileMap);
+}
+
 function buildCurrentStintSlotIds(stintPlayers) {
   const slotIds = [];
   const used = new Set();
@@ -819,6 +833,14 @@ function refreshRowToCurrentLineup(currentSlotIds, currentStintSlotIds) {
   }
 
   return next.filter(Boolean);
+}
+
+function sortRowSlotIdsByHeight(row, slotIds, profileMap) {
+  const orderedPlayers = (slotIds || [])
+    .map((personId) => row.rosterMap.get(String(personId || "")) || null)
+    .filter(Boolean);
+
+  return sortLineupByHeight(orderedPlayers, profileMap).map((player) => player.personId);
 }
 
 function findSlotIndex(slots, clientX, clientY) {
@@ -1703,10 +1725,12 @@ export default function MatchUps({
       setRefreshMenuOpen(false);
       return;
     }
-    updateRowSlots(
-      side,
-      refreshRowToCurrentLineup(row.slotIds, row.currentStintSlotIds)
+    const refreshedSlotIds = sortRowSlotIdsByHeight(
+      row,
+      refreshRowToCurrentLineup(row.slotIds, row.currentStintSlotIds),
+      matchupProfileMap
     );
+    updateRowSlots(side, refreshedSlotIds);
     setRefreshMenuOpen(false);
   };
 
@@ -1747,11 +1771,13 @@ export default function MatchUps({
   const handleResetToDefault = () => {
     setPickerState(null);
     setRefreshMenuOpen(false);
+    const awayStarterSlotIds = buildStarterResetSlotIds(boxScore?.away?.players, awayRow, matchupProfileMap);
+    const homeStarterSlotIds = buildStarterResetSlotIds(boxScore?.home?.players, homeRow, matchupProfileMap);
     setPersistedState((current) => ({
       ...current,
       slots: {
-        away: [],
-        home: [],
+        away: awayStarterSlotIds,
+        home: homeStarterSlotIds,
       },
     }));
   };
@@ -2119,7 +2145,7 @@ export default function MatchUps({
         <div ref={refreshMenuRef} className={styles.refreshMenu}>
           <div className={styles.refreshMenuTitle}>Reset Match-Ups</div>
           <button type="button" className={styles.refreshMenuButton} onClick={handleResetToDefault}>
-            Reset to Default
+            Reset to Starters
           </button>
           <button type="button" className={styles.refreshMenuButton} onClick={() => handleRefreshRow("away")}>
             {`Refresh ${awayTeam?.teamTricode || "Away"}`}

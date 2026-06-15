@@ -2275,9 +2275,6 @@ export default function Game({ variant = "full" }) {
             <button type="button" className={styles.navButton} onClick={openAddNote}>
               Add Note
             </button>
-            <Link to={`/g/${gameId}/notes${notesParams}`}>
-              View Notes
-            </Link>
             <button
               type="button"
               className={styles.navButton}
@@ -2447,7 +2444,12 @@ export default function Game({ variant = "full" }) {
             role="dialog"
             aria-modal="true"
           >
-            <h3>{noteSourceAction ? "Add Note From Play" : "Add Note"}</h3>
+            <div className={styles.noteModalHeader}>
+              <h3>{noteSourceAction ? "Add Note From Play" : "Add Note"}</h3>
+              <Link className={styles.noteModalHeaderLink} to={`/g/${gameId}/notes${notesParams}`}>
+                View Notes
+              </Link>
+            </div>
             <div className={styles.noteTimeRow}>
               <div className={styles.noteTimeLabel}>Time left</div>
               <div className={styles.noteTimeControls}>

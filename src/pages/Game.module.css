@@ -278,6 +278,39 @@ html[data-theme="dark"] .pbpWheel {
   color: var(--text);
 }
 
+.noteModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.noteModalHeader h3 {
+  margin: 0;
+}
+
+.noteModalHeaderLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.noteModalHeaderLink:hover {
+  background: var(--panel);
+  border-color: var(--highlight-text);
+}
+
 .noteSourceSummary {
   white-space: pre-wrap;
   margin-bottom: 12px;
