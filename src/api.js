@@ -240,6 +240,52 @@ function classifyShot(action) {
   return "mid";
 }
 
+function buildCallsAgainstMap(actions, officials, homeTeam, awayTeam) {
+  const homeTeamId = stringValue(homeTeam?.teamId);
+  const awayTeamId = stringValue(awayTeam?.teamId);
+  const homeAbr = stringValue(homeTeam?.teamTricode);
+  const awayAbr = stringValue(awayTeam?.teamTricode);
+  const officialIds = new Set(
+    arrayValue(officials)
+      .map((official) => stringValue(official?.personId))
+      .filter(Boolean),
+  );
+
+  const callsAgainst = {};
+
+  const ensureOfficialRow = (officialId) => {
+    if (!officialId) return null;
+    if (!callsAgainst[officialId]) {
+      callsAgainst[officialId] = {
+        [awayAbr]: 0,
+        [homeAbr]: 0,
+      };
+    }
+    return callsAgainst[officialId];
+  };
+
+  arrayValue(actions).forEach((action) => {
+    if (stringValue(action?.actionType).toLowerCase() !== "foul") return;
+
+    const officialId = stringValue(action?.officialId);
+    const foulingTeamId = stringValue(action?.teamId);
+    if (!officialId || !foulingTeamId) return;
+    if (officialIds.size && !officialIds.has(officialId)) return;
+
+    const teamAbr =
+      foulingTeamId === awayTeamId ? awayAbr
+      : foulingTeamId === homeTeamId ? homeAbr
+      : "";
+    if (!teamAbr) return;
+
+    const officialRow = ensureOfficialRow(officialId);
+    if (!officialRow) return;
+    officialRow[teamAbr] = safeNumber(officialRow[teamAbr], 0) + 1;
+  });
+
+  return callsAgainst;
+}
+
 function buildShotMaps(actions) {
   const players = new Map();
   const teams = new Map();
@@ -688,6 +734,7 @@ function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload, advancedBoxSc
     familyName: stringValue(official?.familyName, official?.family_name, official?.lastName, official?.last_name),
     jerseyNum: stringValue(official?.jerseyNum, official?.jersey_num),
   })).filter((official) => official.personId || official.firstName || official.familyName);
+  const callsAgainst = buildCallsAgainstMap(actions, officials, homeTeam, awayTeam);
 
   return {
     gameId: stringValue(gameSource?.gameId, boxscorePayload?.game?.gameId),
@@ -708,7 +755,7 @@ function normalizeWnbaLiveGame(boxscorePayload, playByPlayPayload, advancedBoxSc
     homeTeam,
     awayTeam,
     officials,
-    callsAgainst: null,
+    callsAgainst,
     timeouts: {
       home: numberValue(homeTeamSource?.timeoutsRemaining, homeTeam.timeoutsRemaining),
       away: numberValue(awayTeamSource?.timeoutsRemaining, awayTeam.timeoutsRemaining),
