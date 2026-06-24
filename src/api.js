@@ -22,18 +22,28 @@ async function requestJson(url) {
 
 async function requestWnbaGamesByDate(dateStr) {
   const normalizedDate = normalizeDateOnly(dateStr);
+  const fallbackUrl = `${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`;
   if (SUPABASE_FUNCTIONS_BASE) {
-    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}`);
+    try {
+      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}`);
+    } catch {
+      return requestJson(fallbackUrl);
+    }
   }
-  return requestJson(`${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`);
+  return requestJson(fallbackUrl);
 }
 
 async function requestWnbaGameById(gameId) {
   const normalizedGameId = padGameId(gameId);
+  const fallbackUrl = `${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`;
   if (SUPABASE_FUNCTIONS_BASE) {
-    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}`);
+    try {
+      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}`);
+    } catch {
+      return requestJson(fallbackUrl);
+    }
   }
-  return requestJson(`${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`);
+  return requestJson(fallbackUrl);
 }
 
 async function requestWnbaLiveGame(gameId) {
@@ -874,7 +884,22 @@ export async function fetchGamesByDate(dateStr) {
   const normalizedGames = arrayValue(games)
     .map((game) => normalizeWnbaScheduleGame(game, String(game?.seasonYear || "")))
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
-  return normalizedGames;
+
+  return Promise.all(
+    normalizedGames.map(async (game) => {
+      if (game.gameStatus === 1) return game;
+      try {
+        const livePayload = await requestWnbaLiveGame(game.gameId);
+        return normalizeWnbaLiveGame(
+          livePayload.boxscore,
+          livePayload.playByPlay || {},
+          livePayload.advancedBoxScore || {}
+        );
+      } catch {
+        return game;
+      }
+    })
+  );
 }
 
 export async function fetchWnbaTeams() {
@@ -908,7 +933,21 @@ export async function fetchGame(gameId, segment = null) {
     return requestJson(url);
   }
 
-  return fetchWnbaScheduleGameById(normalizedGameId);
+  const liveGameResult = await requestWnbaLiveGame(normalizedGameId).catch((error) => ({ error }));
+  if (!liveGameResult?.error) {
+    return normalizeWnbaLiveGame(
+      liveGameResult.boxscore,
+      liveGameResult.playByPlay || {},
+      liveGameResult.advancedBoxScore || {}
+    );
+  }
+
+  const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
+  if (scheduledGame?.gameId) {
+    return buildPregameWnbaGame(scheduledGame, String(scheduledGame?.seasonYear || ""));
+  }
+
+  throw liveGameResult.error;
 }
 
 export async function fetchWnbaFeedHealth(gameId) {
