@@ -5,10 +5,8 @@ import japanNationalTeamLogoUrl from "./assets/japan-national-team-logo.png";
 import { fetchPublishedOfficialsForGame } from "./officialAssignments.js";
 
 const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
-const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
 const WNBA_LIVE_BOXSCORE_BASE = "https://cdn.wnba.com/static/json/liveData/boxscore";
 const WNBA_LIVE_PLAYBYPLAY_BASE = "https://cdn.wnba.com/static/json/liveData/playbyplay";
-const WNBA_SCHEDULE_CACHE_VERSION = "20260415c";
 const WNBA_ROSTERS_CACHE_VERSION = "20260415f";
 const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   ? `${String(import.meta.env.VITE_SUPABASE_URL).replace(/\/$/, "")}/functions/v1`
@@ -22,11 +20,20 @@ async function requestJson(url) {
   return res.json();
 }
 
-async function requestWnbaSchedule() {
+async function requestWnbaGamesByDate(dateStr) {
+  const normalizedDate = normalizeDateOnly(dateStr);
   if (SUPABASE_FUNCTIONS_BASE) {
-    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?v=${encodeURIComponent(WNBA_SCHEDULE_CACHE_VERSION)}`);
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}`);
   }
-  return requestJson(WNBA_SCHEDULE_URL);
+  return requestJson(`${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`);
+}
+
+async function requestWnbaGameById(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  if (SUPABASE_FUNCTIONS_BASE) {
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}`);
+  }
+  return requestJson(`${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`);
 }
 
 async function requestWnbaLiveGame(gameId) {
@@ -125,6 +132,12 @@ function wnbaPeriodLengthSeconds(period) {
 function normalizeDateOnly(value) {
   const text = String(value || "").trim();
   if (!text) return "";
+
+  const compactMatch = text.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (compactMatch) {
+    const [, year, month, day] = compactMatch;
+    return `${year}-${month}-${day}`;
+  }
 
   const slashDateTimeMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
   if (slashDateTimeMatch) {
@@ -851,80 +864,35 @@ async function buildPregameWnbaGame(game, seasonYear = "") {
 
 async function fetchWnbaScheduleGameById(gameId) {
   const normalizedGameId = padGameId(gameId);
-  const payload = await requestWnbaSchedule();
-  const seasonYear = String(payload?.leagueSchedule?.seasonYear || "").trim();
-  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
-    ? payload.leagueSchedule.gameDates
-    : [];
-
-  for (const entry of gameDates) {
-    const games = Array.isArray(entry?.games) ? entry.games : [];
-    const match = games.find((game) => padGameId(game?.gameId) === normalizedGameId);
-    if (match) {
-      return buildPregameWnbaGame(match, seasonYear);
-    }
-  }
-
-  return null;
+  const game = await requestWnbaGameById(normalizedGameId);
+  if (!game?.gameId) return null;
+  return game;
 }
 
 export async function fetchGamesByDate(dateStr) {
-  const normalizedTargetDate = normalizeDateOnly(dateStr);
-  const payload = await requestWnbaSchedule();
-  const seasonYear = String(payload?.leagueSchedule?.seasonYear || "").trim();
-  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
-    ? payload.leagueSchedule.gameDates
-    : [];
-
-  const matchingDate = gameDates.find((entry) => (
-    normalizeDateOnly(entry?.gameDate || entry?.gameDateEst || entry?.gameDateTimeUTC) === normalizedTargetDate
-  ));
-
-  const games = Array.isArray(matchingDate?.games) ? matchingDate.games : [];
-  const normalizedGames = games
-    .map((game) => normalizeWnbaScheduleGame(game, seasonYear))
+  const games = await requestWnbaGamesByDate(dateStr);
+  const normalizedGames = arrayValue(games)
+    .map((game) => normalizeWnbaScheduleGame(game, String(game?.seasonYear || "")))
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
-
-  const hydratedGames = await Promise.all(
-    normalizedGames.map(async (game) => {
-      if (game.gameStatus === 1) {
-        return game;
-      }
-
-      try {
-        const livePayload = await requestWnbaLiveGame(game.gameId);
-        return normalizeWnbaLiveGame(
-          livePayload.boxscore,
-          livePayload.playByPlay || {},
-          livePayload.advancedBoxScore || {}
-        );
-      } catch {
-        return game;
-      }
-    })
-  );
-
-  return hydratedGames;
+  return normalizedGames;
 }
 
 export async function fetchWnbaTeams() {
-  const payload = await requestWnbaSchedule();
-  const gameDates = Array.isArray(payload?.leagueSchedule?.gameDates)
-    ? payload.leagueSchedule.gameDates
-    : [];
   const teams = new Map();
 
-  gameDates.forEach((entry) => {
-    arrayValue(entry?.games).forEach((game) => {
-      [game?.awayTeam, game?.homeTeam].forEach((team) => {
-        const normalized = normalizeTeam(team);
-        if (!normalized.teamId || !normalized.teamName) return;
-        teams.set(normalized.teamId, {
-          teamId: normalized.teamId,
-          tricode: normalized.teamTricode,
-          fullName: `${normalized.teamCity} ${normalized.teamName}`.trim(),
-        });
-      });
+  const rosters = await fetchWnbaRosters();
+  arrayValue(rosters).forEach((entry) => {
+    const normalized = {
+      teamId: stringValue(entry?.teamId),
+      teamTricode: stringValue(entry?.team?.tricode),
+      teamCity: stringValue(entry?.team?.fullName).split(" ").slice(0, -1).join(" "),
+      teamName: stringValue(entry?.team?.fullName).split(" ").slice(-1).join(" "),
+    };
+    if (!normalized.teamId || !stringValue(entry?.team?.fullName)) return;
+    teams.set(normalized.teamId, {
+      teamId: normalized.teamId,
+      tricode: normalized.teamTricode,
+      fullName: stringValue(entry?.team?.fullName),
     });
   });
 
@@ -940,20 +908,7 @@ export async function fetchGame(gameId, segment = null) {
     return requestJson(url);
   }
 
-  const liveGameResult = await requestWnbaLiveGame(normalizedGameId).catch((error) => ({ error }));
-  if (liveGameResult?.error) {
-    const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
-    if (scheduledGame?.gameStatus === 1) {
-      return scheduledGame;
-    }
-    throw liveGameResult.error;
-  }
-
-  return normalizeWnbaLiveGame(
-    liveGameResult.boxscore,
-    liveGameResult.playByPlay || {},
-    liveGameResult.advancedBoxScore || {}
-  );
+  return fetchWnbaScheduleGameById(normalizedGameId);
 }
 
 export async function fetchWnbaFeedHealth(gameId) {

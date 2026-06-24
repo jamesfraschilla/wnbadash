@@ -4,7 +4,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
-const WNBA_SCHEDULE_URL = "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json";
+const API_BASE = "https://d1rjt2wyntx8o7.cloudfront.net/api";
 
 function responseWithHeaders(status: number, body: BodyInit | null, extraHeaders: HeadersInit = {}) {
   return new Response(body, {
@@ -32,7 +32,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const response = await fetch(WNBA_SCHEDULE_URL, {
+    const requestUrl = new URL(req.url);
+    const gameId = String(requestUrl.searchParams.get("gameId") || "").trim();
+    const date = String(requestUrl.searchParams.get("date") || "").trim();
+
+    if (!gameId && !date) {
+      return jsonResponse(400, {
+        error: "Missing query parameter",
+        detail: "Expected either `date` or `gameId`.",
+      });
+    }
+
+    const upstreamUrl = gameId
+      ? `${API_BASE}/games/${encodeURIComponent(gameId)}`
+      : `${API_BASE}/games/byDate?date=${encodeURIComponent(date)}`;
+
+    const response = await fetch(upstreamUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Mystics Dashboard WNBA Schedule Resolver)",
         Accept: "application/json",
@@ -52,7 +67,7 @@ Deno.serve(async (req) => {
     return jsonResponse(502, {
       error: "Unable to resolve WNBA schedule",
       detail: error instanceof Error ? error.message : "unknown",
-      source: WNBA_SCHEDULE_URL,
+      source: API_BASE,
     });
   }
 });
