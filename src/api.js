@@ -879,6 +879,14 @@ async function fetchWnbaScheduleGameById(gameId) {
   return game;
 }
 
+function hasHydratedWnbaGamePayload(game) {
+  if (!game || typeof game !== "object") return false;
+  const playByPlayActions = arrayValue(game?.playByPlayActions);
+  const homePlayers = arrayValue(game?.boxScore?.home?.players);
+  const awayPlayers = arrayValue(game?.boxScore?.away?.players);
+  return playByPlayActions.length > 0 || homePlayers.length > 0 || awayPlayers.length > 0;
+}
+
 export async function fetchGamesByDate(dateStr) {
   const games = await requestWnbaGamesByDate(dateStr);
   const normalizedGames = arrayValue(games)
@@ -896,6 +904,10 @@ export async function fetchGamesByDate(dateStr) {
           livePayload.advancedBoxScore || {}
         );
       } catch {
+        const fallbackGame = await fetchWnbaScheduleGameById(game.gameId).catch(() => null);
+        if (hasHydratedWnbaGamePayload(fallbackGame)) {
+          return fallbackGame;
+        }
         return game;
       }
     })
@@ -944,6 +956,9 @@ export async function fetchGame(gameId, segment = null) {
 
   const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
   if (scheduledGame?.gameId) {
+    if (hasHydratedWnbaGamePayload(scheduledGame)) {
+      return scheduledGame;
+    }
     return buildPregameWnbaGame(scheduledGame, String(scheduledGame?.seasonYear || ""));
   }
 
