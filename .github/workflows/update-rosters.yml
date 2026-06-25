@@ -6,6 +6,9 @@ on:
     - cron: "0 11 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-rosters:
     runs-on: ubuntu-latest
