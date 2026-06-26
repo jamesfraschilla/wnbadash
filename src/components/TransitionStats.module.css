@@ -2,10 +2,10 @@
   margin: 10px 0;
   width: 100%;
   max-width: var(--stats-card-width);
-  height: var(--stats-card-height);
-  padding: 10px 16px;
-  border-radius: 0;
-  border: 1px solid #ffffff;
+  min-height: 168px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   background-color: var(--panel-strong);
   display: flex;
   flex-direction: column;
@@ -18,12 +18,11 @@ html:not([data-theme="dark"]) .container {
 }
 
 .title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
-  margin: 1px 0 6px;
+  margin: 0 0 10px;
   text-align: center;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  text-decoration: none;
   color: var(--text);
 }
 
@@ -82,19 +81,20 @@ html:not([data-theme="dark"]) .container {
 
 @media (max-width: 768px) {
   .container {
-    margin: 24px 0 0;
-    padding: 8px 16px;
+    margin: 10px 0 0;
+    min-height: 0;
+    padding: 14px;
   }
 
   .title {
-    font-size: 20px;
-    margin: 1px 0 4px;
+    font-size: 18px;
+    margin: 0 0 8px;
   }
 
   .table {
     grid-template-columns: minmax(90px, 1fr) repeat(2, minmax(0, 1fr));
     column-gap: 4px;
-    row-gap: 4px;
+    row-gap: 5px;
     width: 100%;
   }
 
@@ -114,13 +114,13 @@ html:not([data-theme="dark"]) .container {
   }
 
   .statLabel {
-    font-size: 11px;
+    font-size: 13px;
     white-space: nowrap;
-    line-height: 14px;
+    line-height: 16px;
   }
 
   .statValue {
-    height: 14px;
-    font-size: 11px;
+    height: 16px;
+    font-size: 13px;
   }
 }
