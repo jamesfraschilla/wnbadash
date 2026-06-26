@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Verify snapshot secrets
         id: snapshot-secrets
         shell: bash
@@ -28,9 +28,16 @@ jobs:
           echo "should_run=true" >> "$GITHUB_OUTPUT"
       - name: Setup Node
         if: steps.snapshot-secrets.outputs.should_run == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify toolchain
+        if: steps.snapshot-secrets.outputs.should_run == 'true'
+        run: |
+          node --version
+          npm --version
       - name: Install dependencies
         if: steps.snapshot-secrets.outputs.should_run == 'true'
         run: npm ci
