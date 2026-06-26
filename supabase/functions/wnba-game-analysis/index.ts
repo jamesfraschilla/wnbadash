@@ -131,9 +131,30 @@ function teamLabel(team: Record<string, unknown> | null | undefined) {
   return String(team?.teamTricode || team?.teamName || "Team");
 }
 
+function readableStringValue(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (/[\p{L}\p{N}]/u.test(text)) return text;
+  }
+  return "";
+}
+
+function playerDisplayName(player: Record<string, unknown>) {
+  const firstName = String(player?.firstName || "").trim();
+  const familyName = String(player?.familyName || player?.lastName || "").trim();
+  const fullName = `${firstName} ${familyName}`.trim();
+  return readableStringValue(
+    player?.fullName,
+    player?.playerName,
+    player?.name,
+    fullName,
+    player?.nameI,
+  );
+}
+
 function describeLineup(players: Array<Record<string, unknown>>) {
   return (Array.isArray(players) ? players : [])
-    .map((player) => String(player?.nameI || player?.fullName || player?.playerName || "").trim())
+    .map((player) => playerDisplayName(player))
     .filter(Boolean)
     .join(", ");
 }
@@ -1006,7 +1027,7 @@ function buildLineupInsights(
 
   const upsertPlayer = (teamId: string, player: Record<string, unknown>, margin: number, seconds: number) => {
     const personId = String(player?.personId || "");
-    const name = String(player?.nameI || player?.fullName || player?.playerName || "").trim();
+    const name = playerDisplayName(player);
     if (!personId || !name || seconds <= 0) return;
     const key = `${teamId}:${personId}`;
     if (!playerSplits.has(key)) {
@@ -1082,14 +1103,11 @@ function buildLineupInsights(
           const offSeconds = rangeSeconds - entry.onSeconds;
           if (offSeconds < 60) return null;
           const offMargin = teamMargin - entry.onMargin;
-          const onPer40 = (entry.onMargin / entry.onSeconds) * (40 * 60);
-          const offPer40 = (offMargin / offSeconds) * (40 * 60);
           return {
             ...entry,
             offSeconds,
-            onPer40,
-            offPer40,
-            differential: onPer40 - offPer40,
+            offMargin,
+            differential: entry.onMargin - offMargin,
           };
         })
         .filter(Boolean)
@@ -1099,7 +1117,7 @@ function buildLineupInsights(
     .filter(Boolean)
     .map((entry) => {
       const team = entry!.teamId === String(homeTeam.teamId) ? homeTeam : awayTeam;
-      return `${teamLabel(team)} on/off: ${entry!.name} was ${formatSignedValue(Math.round(entry!.onPer40))} per 40 on court versus ${formatSignedValue(Math.round(entry!.offPer40))} per 40 off court in this span.`;
+      return `${teamLabel(team)} on/off: ${entry!.name} was ${formatSignedValue(Math.round(entry!.onMargin))} on court in ${formatSecondsClock(entry!.onSeconds)} versus ${formatSignedValue(Math.round(entry!.offMargin))} off court in ${formatSecondsClock(entry!.offSeconds)}.`;
     });
 
   return {
@@ -1317,7 +1335,7 @@ function buildInsightSignals(features: ReturnType<typeof buildFeaturePayload>) {
       title: "Possession Battle",
       strength: Math.abs(home.totals.turnovers - away.totals.turnovers) * 1.2,
       items: [
-        `${home.tricode} turnovers: ${home.totals.turnovers}. ${away.tricode} turnovers: ${away.totals.turnovers}.`,
+        buildTurnoverText(home, away) || `${home.tricode} and ${away.tricode} committed ${home.totals.turnovers} turnovers each.`,
         `${home.tricode} points off turnovers: ${home.totals.pointsOffTurnovers}. ${away.tricode} points off turnovers: ${away.totals.pointsOffTurnovers}.`,
       ],
     },
@@ -1407,6 +1425,17 @@ function buildEdgeText(
   return `${leader.tricode} ${label} edge: ${leaderValue}-${trailerValue}.`;
 }
 
+function buildTurnoverText(home: Record<string, any>, away: Record<string, any>) {
+  const homeTurnovers = safeNumber(home.totals?.turnovers, 0);
+  const awayTurnovers = safeNumber(away.totals?.turnovers, 0);
+  if (homeTurnovers === awayTurnovers) return null;
+  const leader = homeTurnovers < awayTurnovers ? home : away;
+  const trailer = homeTurnovers < awayTurnovers ? away : home;
+  const leaderValue = Math.min(homeTurnovers, awayTurnovers);
+  const trailerValue = Math.max(homeTurnovers, awayTurnovers);
+  return `${leader.tricode} committed fewer turnovers (${leaderValue} to ${trailerValue}).`;
+}
+
 function buildTemplateSections(features: ReturnType<typeof buildFeaturePayload>) {
   return buildInsightSignals(features)
     .sort((a, b) => b.strength - a.strength)
@@ -1432,8 +1461,8 @@ function buildSwingFactors(features: ReturnType<typeof buildFeaturePayload>) {
     })) : []),
     {
       label: "turnovers",
-      value: away.totals.turnovers - home.totals.turnovers,
-      text: `${home.tricode} won turnovers ${formatSignedValue(away.totals.turnovers - home.totals.turnovers)} (${home.totals.turnovers} to ${away.totals.turnovers}).`,
+      value: Math.abs(away.totals.turnovers - home.totals.turnovers),
+      text: buildTurnoverText(home, away),
     },
     {
       label: "paint",
@@ -1523,6 +1552,7 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
     "Do not invent stats, possessions, or player impact claims.",
     "Do not overstate player scoring share; if a player scored 10 points for a team that scored 38, do not say he scored all of the team's points.",
     "When citing team edges in categories like paint points or points off turnovers, name the team with the higher value.",
+    "For turnovers, lower is better; never say a team won turnovers because it committed more turnovers. Say the lower-turnover team committed fewer turnovers.",
     "Decide what most shaped this selected stretch instead of forcing equal attention to every category.",
     "Vary sentence structure and avoid repeating the same opening pattern from one answer to the next.",
     "If one theme clearly dominates, center the answer on that theme.",

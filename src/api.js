@@ -88,6 +88,14 @@ function stringValue(...values) {
   return "";
 }
 
+function readableStringValue(...values) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (/[\p{L}\p{N}]/u.test(text)) return text;
+  }
+  return "";
+}
+
 function objectValue(...values) {
   for (const value of values) {
     if (value && typeof value === "object" && !Array.isArray(value)) return value;
@@ -596,9 +604,17 @@ function extractStarters(players) {
 function buildMinutesPlayers(lineup, playerMap) {
   return Array.from(lineup).map((personId, rowPosition) => {
     const player = playerMap.get(personId) || {};
+    const firstName = stringValue(player.firstName);
+    const familyName = stringValue(player.familyName);
+    const fullName = readableStringValue(player.fullName, player.name, `${firstName} ${familyName}`);
+    const initialName = readableStringValue(player.nameI, `${firstName.slice(0, 1)}. ${familyName}`, fullName);
     return {
       personId,
-      nameI: stringValue(player.nameI, player.name, `${stringValue(player.firstName).slice(0, 1)}. ${stringValue(player.familyName)}`.trim()),
+      firstName,
+      familyName,
+      fullName,
+      playerName: fullName,
+      nameI: initialName,
       jerseyNum: stringValue(player.jerseyNum),
       rowPosition,
     };
