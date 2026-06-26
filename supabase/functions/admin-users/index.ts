@@ -48,7 +48,7 @@ function getAdminClient() {
   });
 }
 
-async function requireAdmin(adminClient: ReturnType<typeof createClient>, req: Request) {
+async function requireAdmin(adminClient: any, req: Request) {
   const authHeader = req.headers.get("Authorization") || "";
   let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   if (!token) {
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     return jsonResponse(405, { error: "Method not allowed" });
   }
 
-  let adminClient;
+  let adminClient: any;
   try {
     adminClient = getAdminClient();
   } catch (error) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchMinutes, teamLogoUrl } from "../api.js";
+import { teamLogoUrl } from "../api.js";
+import { useMinutes } from "../queries.js";
 import styles from "./Minutes.module.css";
 
 function StintCell({ stint, isLast, view }) {
@@ -63,10 +63,7 @@ export default function Minutes() {
   const [params] = useSearchParams();
   const dateParam = params.get("d");
   const [view, setView] = useState("away");
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["minutes", gameId],
-    queryFn: () => fetchMinutes(gameId),
-    enabled: Boolean(gameId),
+  const { data, isLoading, error } = useMinutes(gameId, {
     refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchGamesByDate, filterGamesByLeague, teamLogoUrl } from "../api.js";
+import { filterGamesByLeague, teamLogoUrl } from "../api.js";
+import { useGamesByDate } from "../queries.js";
 import { formatDateInput, formatDateLabel, formatTipTime, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
 import styles from "./Home.module.css";
 
@@ -13,9 +13,7 @@ export default function Home() {
   const dateLabel = formatDateLabel(date);
   const [, setParams] = useSearchParams();
 
-  const { data: games = [], isLoading, error } = useQuery({
-    queryKey: ["games", dateInput],
-    queryFn: () => fetchGamesByDate(dateInput),
+  const { data: games = [], isLoading, error } = useGamesByDate(dateInput, {
     refetchInterval: (query) =>
       query.state.data?.some((game) => game.gameStatus === 2) ? 30_000 : false,
     refetchIntervalInBackground: true,

@@ -1,4 +1,5 @@
 import { getSavedToolRecordRemote, saveToolRecordRemote } from "./toolVault.js";
+import { STATIC_REFEREE_HEADSHOT_PATHS } from "./refereeHeadshotStaticPaths.js";
 import { supabase } from "./supabaseClient.js";
 
 export const REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY = "referee_headshot_overrides_v1";
@@ -7,6 +8,9 @@ export const REFEREE_HEADSHOT_EDITOR_REFERENCE_SIZE = 308;
 export const REFEREE_HEADSHOT_CHANGE_EVENT = "referee-headshots-updated";
 export const REFEREE_HEADSHOT_REMOTE_RECORD_ID = "shared-referee-headshots";
 export const REFEREE_HEADSHOT_REMOTE_RECORD_TYPE = "referee_headshots";
+export const REFEREE_HEADSHOT_PREVIEW_BUCKET = "referee-headshots-preview";
+export const REFEREE_HEADSHOT_FULL_BUCKET = "referee-headshots-full";
+export const STATIC_REFEREE_HEADSHOT_FULL_PREFIX = "static";
 const REFEREE_HEADSHOT_SHARED_TABLE = "rotations_shared_state";
 const REFEREE_HEADSHOT_SHARED_SCOPE_TYPE = "shared_referee_headshots";
 const REFEREE_HEADSHOT_SHARED_SCOPE_KEY = "global";
@@ -47,19 +51,40 @@ export function buildManualRefereeItemId(nameKey) {
   return normalizedKey ? `manual:${normalizedKey}` : "";
 }
 
-const IMAGE_MODULES = import.meta.glob(
-  [
-    "./assets/referees/*.jpg",
-    "./assets/referees/*.jpeg",
-    "./assets/referees/*.JPG",
-    "./assets/referees/*.JPEG",
-    "./assets/referees_review_duplicates/*.jpg",
-    "./assets/referees_review_duplicates/*.jpeg",
-    "./assets/referees_review_duplicates/*.JPG",
-    "./assets/referees_review_duplicates/*.JPEG",
-  ],
-  { eager: true, import: "default" }
-);
+let staticRefereeHeadshotItems = [];
+let staticRefereeHeadshotItemsPromise = null;
+
+function encodePublicPathSegment(value) {
+  return encodeURIComponent(String(value || ""))
+    .replace(/%2F/g, "/");
+}
+
+export function buildStaticRefereeHeadshotFullPath(path, fileName) {
+  const root = path.includes("/referees_review_duplicates/")
+    ? "referees_review_duplicates"
+    : "referees";
+  return `${STATIC_REFEREE_HEADSHOT_FULL_PREFIX}/${root}/${fileName}`;
+}
+
+function buildSupabaseStoragePublicUrl(bucket, path) {
+  if (!supabase || !bucket || !path) return "";
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return String(data?.publicUrl || "").trim();
+}
+
+function buildLegacyFullResolutionRefereeHeadshotUrl(path, fileName) {
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  const root = path.includes("/referees_review_duplicates/")
+    ? "referees_review_duplicates"
+    : "referees";
+  return `${baseUrl}referees-full/${root}/${encodePublicPathSegment(fileName)}`;
+}
+
+function buildFullResolutionRefereeHeadshotUrl(path, fileName) {
+  const storagePath = buildStaticRefereeHeadshotFullPath(path, fileName);
+  return buildSupabaseStoragePublicUrl(REFEREE_HEADSHOT_FULL_BUCKET, storagePath)
+    || buildLegacyFullResolutionRefereeHeadshotUrl(path, fileName);
+}
 
 export function normalizeNameKey(value) {
   return String(value || "")
@@ -169,10 +194,23 @@ export function sanitizeRefereeHeadshotPreferences(rawPreferences) {
     const normalizedKey = normalizeNameKey(nameKey);
     const fileName = String(record?.fileName || "").trim();
     const dataUrl = String(record?.dataUrl || "").trim();
-    if (normalizedKey && dataUrl) {
+    const previewBucket = String(record?.previewBucket || "").trim();
+    const previewPath = String(record?.previewPath || "").trim();
+    const previewUrl = String(record?.previewUrl || "").trim() || buildSupabaseStoragePublicUrl(previewBucket, previewPath);
+    const fullBucket = String(record?.fullBucket || "").trim();
+    const fullPath = String(record?.fullPath || "").trim();
+    const fullUrl = String(record?.fullUrl || "").trim() || buildSupabaseStoragePublicUrl(fullBucket, fullPath);
+    const shouldKeepDataUrl = !(previewUrl || fullUrl || previewPath || fullPath);
+    if (normalizedKey && ((shouldKeepDataUrl && dataUrl) || previewUrl || fullUrl)) {
       uploadedImagesByNameKey[normalizedKey] = {
         fileName: fileName || `${normalizedKey}.jpg`,
-        dataUrl,
+        dataUrl: shouldKeepDataUrl ? dataUrl : "",
+        previewBucket,
+        previewPath,
+        previewUrl,
+        fullBucket,
+        fullPath,
+        fullUrl,
       };
     }
   });
@@ -433,19 +471,21 @@ export function buildCanvasAvatarPlacement({
   };
 }
 
-export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
-  const assetItems = Object.entries(IMAGE_MODULES)
-    .map(([path, url]) => {
+function buildStaticRefereeHeadshotItems(assetPaths) {
+  return assetPaths
+    .map((path) => {
       const fileName = path.split("/").pop() || "";
       const fullName = fileName.replace(/\.(jpe?g)$/i, "");
       const isDuplicate = path.includes("/referees_review_duplicates/");
+      const storageUrl = buildFullResolutionRefereeHeadshotUrl(path, fileName);
       return {
         id: path,
         path,
         fileName,
         fullName,
         nameKey: normalizeNameKey(fullName),
-        url,
+        url: storageUrl,
+        exportUrl: storageUrl,
         source: isDuplicate ? "duplicate review" : "production",
         isDuplicate,
       };
@@ -454,7 +494,25 @@ export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEA
       if (a.isDuplicate !== b.isDuplicate) return a.isDuplicate ? 1 : -1;
       return a.fullName.localeCompare(b.fullName);
     });
+}
 
+function ensureStaticRefereeHeadshotItemsLoadedSync() {
+  if (!staticRefereeHeadshotItems.length) {
+    staticRefereeHeadshotItems = buildStaticRefereeHeadshotItems(STATIC_REFEREE_HEADSHOT_PATHS);
+  }
+  return staticRefereeHeadshotItems;
+}
+
+async function ensureStaticRefereeHeadshotItemsLoaded() {
+  if (staticRefereeHeadshotItems.length) return staticRefereeHeadshotItems;
+  if (!staticRefereeHeadshotItemsPromise) {
+    staticRefereeHeadshotItemsPromise = Promise.resolve(ensureStaticRefereeHeadshotItemsLoadedSync());
+  }
+  return staticRefereeHeadshotItemsPromise;
+}
+
+export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  const staticItems = ensureStaticRefereeHeadshotItemsLoadedSync();
   const manualItems = Object.entries(preferences.manualRefereesByNameKey || {})
     .map(([nameKey, displayName]) => {
       const normalizedKey = normalizeNameKey(nameKey);
@@ -465,7 +523,8 @@ export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEA
         fileName: String(displayName || "").trim(),
         fullName: String(displayName || "").trim(),
         nameKey: normalizedKey,
-        url: String(uploaded?.dataUrl || "").trim(),
+        url: String(uploaded?.previewUrl || uploaded?.dataUrl || "").trim(),
+        exportUrl: String(uploaded?.fullUrl || uploaded?.previewUrl || uploaded?.dataUrl || "").trim(),
         source: "manual",
         isDuplicate: false,
         isManual: true,
@@ -474,7 +533,12 @@ export function buildRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEA
     .filter((item) => item.nameKey && item.fullName)
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 
-  return [...assetItems, ...manualItems];
+  return [...staticItems, ...manualItems];
+}
+
+export async function loadRefereeHeadshotImageItems(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  await ensureStaticRefereeHeadshotItemsLoaded();
+  return buildRefereeHeadshotImageItems(preferences);
 }
 
 export function getAssignedRefereeName(item, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
@@ -567,26 +631,30 @@ export function choosePreferredRefereeHeadshot(groupItems, nameKey, preferences 
   const uploaded = preferences.uploadedImagesByNameKey?.[nameKey];
   const visibleItems = groupItems.filter((item) => !preferences.hiddenImageIds.includes(item.id));
   const preferredId = preferences.preferredImageIdsByNameKey?.[nameKey];
-  if (preferredId === buildUploadedRefereeImageId(nameKey) && uploaded?.dataUrl) {
-    return {
-      id: preferredId,
-      fileName: uploaded.fileName,
-      fullName: nameKey,
-      nameKey,
-      url: uploaded.dataUrl,
-      source: "uploaded replacement",
-      isDuplicate: false,
-      isUploaded: true,
+  const uploadedPreviewUrl = String(uploaded?.previewUrl || uploaded?.dataUrl || "").trim();
+  const uploadedFullUrl = String(uploaded?.fullUrl || uploaded?.previewUrl || uploaded?.dataUrl || "").trim();
+  if (preferredId === buildUploadedRefereeImageId(nameKey) && uploadedPreviewUrl) {
+      return {
+        id: preferredId,
+        fileName: uploaded.fileName,
+        fullName: nameKey,
+        nameKey,
+        url: uploadedPreviewUrl,
+        exportUrl: uploadedFullUrl,
+        source: "uploaded replacement",
+        isDuplicate: false,
+        isUploaded: true,
     };
   }
   if (!visibleItems.length) {
-    if (uploaded?.dataUrl) {
+    if (uploadedPreviewUrl) {
       return {
         id: buildUploadedRefereeImageId(nameKey),
         fileName: uploaded.fileName,
         fullName: nameKey,
         nameKey,
-        url: uploaded.dataUrl,
+        url: uploadedPreviewUrl,
+        exportUrl: uploadedFullUrl,
         source: "uploaded replacement",
         isDuplicate: false,
         isUploaded: true,
@@ -600,19 +668,19 @@ export function choosePreferredRefereeHeadshot(groupItems, nameKey, preferences 
 }
 
 export function buildRefereeHeadshotLookup(preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
+  return buildRefereeHeadshotLookupByField("url", preferences);
+}
+
+function buildRefereeHeadshotLookupByField(field, preferences = DEFAULT_REFEREE_HEADSHOT_PREFERENCES) {
   const items = buildRefereeHeadshotImageItems(preferences);
   const groups = buildRefereeHeadshotGroups(items, preferences);
   const lookup = new Map();
   groups.forEach((group, nameKey) => {
-    const uploaded = preferences.uploadedImagesByNameKey?.[nameKey];
     const groupNameKeys = buildRefereeHeadshotGroupNameKeys(group, preferences);
-    if (uploaded?.dataUrl) {
-      groupNameKeys.forEach((groupNameKey) => lookup.set(groupNameKey, uploaded.dataUrl));
-      return;
-    }
     const preferred = choosePreferredRefereeHeadshot(group.items, nameKey, preferences);
-    if (preferred?.url) {
-      groupNameKeys.forEach((groupNameKey) => lookup.set(groupNameKey, preferred.url));
+    const value = preferred?.[field] || preferred?.url || null;
+    if (value) {
+      groupNameKeys.forEach((groupNameKey) => lookup.set(groupNameKey, value));
     }
   });
   return lookup;
@@ -623,6 +691,91 @@ export function getRefereeHeadshotUrl(fullName, preferences = null) {
   const lookup = buildRefereeHeadshotLookup(effectivePreferences);
   const resolvedKey = resolveRefereeHeadshotNameKey(fullName, effectivePreferences);
   return lookup.get(resolvedKey) || lookup.get(normalizeNameKey(fullName)) || null;
+}
+
+export function getRefereeHeadshotExportUrl(fullName, preferences = null) {
+  const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
+  const lookup = buildRefereeHeadshotLookupByField("exportUrl", effectivePreferences);
+  const resolvedKey = resolveRefereeHeadshotNameKey(fullName, effectivePreferences);
+  return lookup.get(resolvedKey) || lookup.get(normalizeNameKey(fullName)) || getRefereeHeadshotUrl(fullName, effectivePreferences);
+}
+
+export async function loadRefereeHeadshotUrl(fullName, preferences = null) {
+  const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
+  await ensureStaticRefereeHeadshotItemsLoaded();
+  return getRefereeHeadshotUrl(fullName, effectivePreferences);
+}
+
+export async function loadRefereeHeadshotExportUrl(fullName, preferences = null) {
+  const effectivePreferences = preferences || readStoredRefereeHeadshotPreferences();
+  await ensureStaticRefereeHeadshotItemsLoaded();
+  return getRefereeHeadshotExportUrl(fullName, effectivePreferences);
+}
+
+export async function uploadRefereeHeadshotAssets({
+  nameKey,
+  originalFileName,
+  previewBlob,
+  fullBlob,
+}) {
+  const normalizedKey = normalizeNameKey(nameKey);
+  if (!normalizedKey) {
+    throw new Error("Missing referee name.");
+  }
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+  const timestamp = Date.now();
+  const safeBaseName = normalizedKey || "referee";
+  const previewPath = `${safeBaseName}/${timestamp}-preview.jpg`;
+  const fullPath = `${safeBaseName}/${timestamp}-full.jpg`;
+
+  const previewUpload = await supabase.storage
+    .from(REFEREE_HEADSHOT_PREVIEW_BUCKET)
+    .upload(previewPath, previewBlob, {
+      contentType: "image/jpeg",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (previewUpload.error) {
+    throw previewUpload.error;
+  }
+
+  const fullUpload = await supabase.storage
+    .from(REFEREE_HEADSHOT_FULL_BUCKET)
+    .upload(fullPath, fullBlob, {
+      contentType: "image/jpeg",
+      cacheControl: "31536000",
+      upsert: false,
+    });
+  if (fullUpload.error) {
+    throw fullUpload.error;
+  }
+
+  return {
+    fileName: originalFileName || `${safeBaseName}.jpg`,
+    previewBucket: REFEREE_HEADSHOT_PREVIEW_BUCKET,
+    previewPath,
+    previewUrl: buildSupabaseStoragePublicUrl(REFEREE_HEADSHOT_PREVIEW_BUCKET, previewPath),
+    fullBucket: REFEREE_HEADSHOT_FULL_BUCKET,
+    fullPath,
+    fullUrl: buildSupabaseStoragePublicUrl(REFEREE_HEADSHOT_FULL_BUCKET, fullPath),
+  };
+}
+
+export async function deleteUploadedRefereeHeadshotAssets(uploadedRecord) {
+  if (!supabase || !uploadedRecord || typeof uploadedRecord !== "object") return;
+  const previewBucket = String(uploadedRecord.previewBucket || "").trim();
+  const previewPath = String(uploadedRecord.previewPath || "").trim();
+  const fullBucket = String(uploadedRecord.fullBucket || "").trim();
+  const fullPath = String(uploadedRecord.fullPath || "").trim();
+
+  if (previewBucket && previewPath) {
+    await supabase.storage.from(previewBucket).remove([previewPath]).catch(() => {});
+  }
+  if (fullBucket && fullPath) {
+    await supabase.storage.from(fullBucket).remove([fullPath]).catch(() => {});
+  }
 }
 
 export function resolveRefereeHeadshotOverrideKey(fullName, overrides = null, preferences = null) {

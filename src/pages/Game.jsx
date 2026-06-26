@@ -7,11 +7,10 @@ import {
   buildMinutesDataFromGame,
   fetchCurrentGLeagueRosters,
   fetchCurrentNbaRosters,
-  fetchGame,
-  fetchMinutes,
   inferLeagueFromTeamId,
   teamLogoUrl,
 } from "../api.js";
+import { useGame, useMinutes } from "../queries.js";
 import { useAuth } from "../auth/useAuth.js";
 import {
   buildDefaultNoteForm,
@@ -686,18 +685,13 @@ export default function Game({ variant = "full" }) {
     setParams(nextParams);
   };
 
-  const { data: game, isLoading, error } = useQuery({
-    queryKey: ["game", gameId, isWnbaGameId ? null : segmentParam],
-    queryFn: () => fetchGame(gameId, isWnbaGameId ? null : segmentParam),
-    enabled: Boolean(gameId),
-    staleTime: 30_000,
+  const { data: game, isLoading, error } = useGame(gameId, {
+    segment: isWnbaGameId ? null : segmentParam,
     refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });
 
-  const { data: remoteMinutesData } = useQuery({
-    queryKey: ["minutes", gameId],
-    queryFn: () => fetchMinutes(gameId),
+  const { data: remoteMinutesData } = useMinutes(gameId, {
     enabled: Boolean(gameId) && !isWnbaGameId,
     refetchInterval: () => (game?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
@@ -732,18 +726,16 @@ export default function Game({ variant = "full" }) {
     queryKey: ["game-roster-caps", awayTeamScope],
     queryFn: () => fetchRemotePregamePlayers(awayTeamScope),
     enabled: Boolean(awayTeamScope),
-    staleTime: 10_000,
-    refetchInterval: 10_000,
-    refetchIntervalInBackground: true,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: homeRemoteRoster } = useQuery({
     queryKey: ["game-roster-caps", homeTeamScope],
     queryFn: () => fetchRemotePregamePlayers(homeTeamScope),
     enabled: Boolean(homeTeamScope),
-    staleTime: 10_000,
-    refetchInterval: 10_000,
-    refetchIntervalInBackground: true,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const { data: periodSnapshots = [] } = useQuery({

@@ -3,7 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteDrawingRecord, deleteNoteRecord, listOwnedDrawings, listOwnedNotes } from "../accountData.js";
 import { useAuth } from "../auth/useAuth.js";
-import { fetchGame, inferLeagueFromTeamId } from "../api.js";
+import { inferLeagueFromTeamId } from "../api.js";
+import { gameQueryOptions } from "../queries.js";
 import { getOpponentTeamForGame, getTrackedTeamForGame } from "../teamConfig.js";
 import {
   deleteSavedToolRecord,
@@ -127,10 +128,7 @@ export default function UserContent() {
   ), [drawings, notes]);
 
   const gameQueries = useQueries({
-    queries: uniqueGameIds.map((gameId) => ({
-      queryKey: ["user-content-game", gameId],
-      queryFn: () => fetchGame(gameId),
-      enabled: Boolean(gameId),
+    queries: uniqueGameIds.map((gameId) => gameQueryOptions(gameId, {
       staleTime: 5 * 60 * 1000,
     })),
   });

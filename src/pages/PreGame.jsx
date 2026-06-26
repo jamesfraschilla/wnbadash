@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { fetchGame, teamLogoUrl } from "../api.js";
+import { teamLogoUrl } from "../api.js";
+import { gameQueryOptions } from "../queries.js";
 import {
   fetchRemotePregamePlayers,
   getTeamBoxScorePlayers,
@@ -566,11 +567,7 @@ export default function PreGame() {
   const dateParam = params.get("d");
   const backUrl = dateParam ? `/g/${gameId}?d=${dateParam}` : `/g/${gameId}`;
 
-  const { data: game, isLoading, error } = useQuery({
-    queryKey: ["game-pregame", gameId],
-    queryFn: () => fetchGame(gameId),
-    enabled: Boolean(gameId),
-  });
+  const { data: game, isLoading, error } = useQuery(gameQueryOptions(gameId));
 
   const [players, setPlayers] = useState([]);
   const [slots, setSlots] = useState([]);
@@ -601,8 +598,8 @@ export default function PreGame() {
     queryKey: ["pregame-players-remote", trackedTeamScope],
     queryFn: () => fetchRemotePregamePlayers(trackedTeamScope),
     enabled: Boolean(supabase && trackedTeamScope),
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -614,8 +611,8 @@ export default function PreGame() {
     queryKey: ["pregame-schedule-remote", gameId],
     queryFn: () => fetchRemoteSchedule(gameId),
     enabled: Boolean(supabase && gameId),
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -627,8 +624,8 @@ export default function PreGame() {
     queryKey: ["pregame-template-remote"],
     queryFn: fetchRemoteTemplate,
     enabled: Boolean(supabase),
-    staleTime: 10_000,
-    refetchInterval: 10_000,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const supportedTeamGame = Boolean(trackedTeamScope);

@@ -7,7 +7,6 @@ import {
   cacheStoredRefereeHeadshotOverrides,
   cacheStoredRefereeHeadshotPreferences,
   buildRefereeHeadshotGroups,
-  buildRefereeHeadshotImageItems,
   buildRefereeHeadshotTransform,
   choosePreferredRefereeHeadshot,
   DEFAULT_REFEREE_HEADSHOT_OVERRIDES,
@@ -15,16 +14,19 @@ import {
   getAssignedRefereeName,
   getAssignedRefereeNameKey,
   getRefereeAlternateNames,
+  loadRemoteRefereeHeadshotState,
+  loadRefereeHeadshotImageItems,
   normalizeNameKey,
   REFEREE_HEADSHOT_OVERRIDE_STORAGE_KEY,
   REFEREE_HEADSHOT_PREFERENCES_STORAGE_KEY,
-  loadRemoteRefereeHeadshotState,
   resolveRefereeHeadshotOverrideKey,
+  deleteUploadedRefereeHeadshotAssets,
   saveRemoteRefereeHeadshotState,
   sanitizeRefereeHeadshotPreferences,
   sanitizeRefereeHeadshotOverrides,
   serializeRefereeHeadshotPreferences,
   serializeRefereeHeadshotOverrides,
+  uploadRefereeHeadshotAssets,
   writeStoredRefereeHeadshotState,
 } from "../refereeHeadshots.js";
 import styles from "./RefereeHeadshotsPreview.module.css";
@@ -112,22 +114,27 @@ function sanitizeCopiedCropSettings(rawValue) {
   return next;
 }
 
-async function loadImageFileAsDataUrl(file) {
-  const rawDataUrl = await new Promise((resolve, reject) => {
+async function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(new Error("Unable to read image file."));
     reader.readAsDataURL(file);
   });
+}
 
-  const image = await new Promise((resolve, reject) => {
+async function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
     const nextImage = new Image();
     nextImage.onload = () => resolve(nextImage);
     nextImage.onerror = () => reject(new Error("Unable to decode image file."));
-    nextImage.src = rawDataUrl;
+    nextImage.src = src;
   });
+}
 
-  const maxEdge = 1400;
+async function renderCompressedImageBlob(file, { maxEdge, quality }) {
+  const rawDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImageElement(rawDataUrl);
   const sourceWidth = image.naturalWidth || image.width;
   const sourceHeight = image.naturalHeight || image.height;
   const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
@@ -140,7 +147,15 @@ async function loadImageFileAsDataUrl(file) {
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
   context.drawImage(image, 0, 0, width, height);
-  return canvas.toDataURL("image/jpeg", 0.9);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Unable to encode image."));
+        return;
+      }
+      resolve(blob);
+    }, "image/jpeg", quality);
+  });
 }
 
 export default function RefereeHeadshotsPreview({ embedded = false }) {
@@ -155,15 +170,50 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const [showOnlyEdited, setShowOnlyEdited] = useState(false);
   const [showOnlyDuplicates, setShowOnlyDuplicates] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [allItems, setAllItems] = useState([]);
   const [copyMessage, setCopyMessage] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
   const localCacheWarning = "Browser storage is full. Changes remain in this tab, but click Save Changes before refreshing.";
 
-  const allItems = useMemo(() => buildRefereeHeadshotImageItems(preferences), [preferences]);
   const savedOverridesSignatureRef = useRef(serializeRefereeHeadshotOverrides(readInitialOverrides()));
   const savedPreferencesSignatureRef = useRef(serializeRefereeHeadshotPreferences(readInitialPreferences()));
+  const remoteHydrationCompleteRef = useRef(!user?.id);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadRefereeHeadshotImageItems(preferences)
+      .then((items) => {
+        if (!cancelled) {
+          setAllItems(items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAllItems([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preferences]);
+
+  useEffect(() => {
+    const cacheResult = cacheStoredRefereeHeadshotOverrides(overrides);
+    if (!cacheResult.ok) {
+      setSaveMessage(localCacheWarning);
+    }
+    broadcastRefereeHeadshotChange();
+  }, [overrides]);
+
+  useEffect(() => {
+    const cacheResult = cacheStoredRefereeHeadshotPreferences(preferences);
+    if (!cacheResult.ok) {
+      setUploadMessage(localCacheWarning);
+    }
+    broadcastRefereeHeadshotChange();
+  }, [preferences]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -224,8 +274,11 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
   const selectedUploadedImageId = selectedAssignedNameKey ? buildUploadedRefereeImageId(selectedAssignedNameKey) : "";
   const selectedUsesUploadedImage = selectedPreferredItem?.id === selectedUploadedImageId;
   const selectedPreviewSrc = selectedUsesUploadedImage && selectedUploadedImage
-    ? selectedUploadedImage.dataUrl
+    ? (selectedUploadedImage.previewUrl || selectedUploadedImage.dataUrl || "")
     : selectedItem?.url || "";
+  const selectedFullPreviewSrc = selectedUsesUploadedImage && selectedUploadedImage
+    ? (selectedUploadedImage.fullUrl || selectedUploadedImage.previewUrl || selectedUploadedImage.dataUrl || "")
+    : (selectedItem?.exportUrl || selectedItem?.url || "");
   const currentOverridesSignature = useMemo(() => serializeRefereeHeadshotOverrides(overrides), [overrides]);
   const currentPreferencesSignature = useMemo(() => serializeRefereeHeadshotPreferences(preferences), [preferences]);
   const hasUnsavedChanges =
@@ -249,38 +302,57 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!user?.id) return undefined;
+    if (!user?.id) {
+      remoteHydrationCompleteRef.current = true;
+      return undefined;
+    }
+    remoteHydrationCompleteRef.current = false;
     loadRemoteRefereeHeadshotState(user.id)
       .then((remoteState) => {
-        if (cancelled || !remoteState) return;
+        if (cancelled) return;
+        remoteHydrationCompleteRef.current = true;
+        if (!remoteState) return;
         setOverrides(remoteState.overrides);
         setPreferences(remoteState.preferences);
         savedOverridesSignatureRef.current = serializeRefereeHeadshotOverrides(remoteState.overrides);
         savedPreferencesSignatureRef.current = serializeRefereeHeadshotPreferences(remoteState.preferences);
       })
-      .catch(() => {});
+      .catch(() => {
+        remoteHydrationCompleteRef.current = true;
+      });
     return () => {
       cancelled = true;
     };
   }, [user?.id]);
 
-  // Auto-save to localStorage and broadcast changes when overrides change
   useEffect(() => {
-    const cacheResult = cacheStoredRefereeHeadshotOverrides(overrides);
-    if (!cacheResult.ok) {
-      setSaveMessage(localCacheWarning);
+    if (!user?.id || !remoteHydrationCompleteRef.current) return undefined;
+    if (
+      currentOverridesSignature === savedOverridesSignatureRef.current
+      && currentPreferencesSignature === savedPreferencesSignatureRef.current
+    ) {
+      return undefined;
     }
-    broadcastRefereeHeadshotChange();
-  }, [overrides]);
 
-  // Auto-save to localStorage and broadcast changes when preferences change
-  useEffect(() => {
-    const cacheResult = cacheStoredRefereeHeadshotPreferences(preferences);
-    if (!cacheResult.ok) {
-      setUploadMessage(localCacheWarning);
-    }
-    broadcastRefereeHeadshotChange();
-  }, [preferences]);
+    const timeoutId = window.setTimeout(() => {
+      saveRemoteRefereeHeadshotState(user.id, { overrides, preferences })
+        .then(() => {
+          savedOverridesSignatureRef.current = currentOverridesSignature;
+          savedPreferencesSignatureRef.current = currentPreferencesSignature;
+        })
+        .catch((error) => {
+          console.warn("Unable to auto-save referee headshot changes.", error);
+        });
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    currentOverridesSignature,
+    currentPreferencesSignature,
+    overrides,
+    preferences,
+    user?.id,
+  ]);
 
   useEffect(() => {
     setAssignmentDraft(selectedAssignedName);
@@ -498,7 +570,6 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     const nextPreferencesSignature = serializeRefereeHeadshotPreferences(preferences);
     try {
       const localSaveResult = writeStoredRefereeHeadshotState(overrides, preferences);
-      // Remote save is optional - if it fails, local save still worked
       if (user?.id) {
         try {
           await saveRemoteRefereeHeadshotState(user.id, { overrides, preferences });
@@ -523,18 +594,28 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     const file = event.target.files?.[0];
     if (!file || !selectedAssignedNameKey) return;
     try {
-      const dataUrl = await loadImageFileAsDataUrl(file);
+      if (!user?.id) {
+        throw new Error("Sign in to upload referee photos.");
+      }
+      setUploadMessage("Uploading...");
+      const [previewBlob, fullBlob] = await Promise.all([
+        renderCompressedImageBlob(file, { maxEdge: 720, quality: 0.82 }),
+        renderCompressedImageBlob(file, { maxEdge: 2200, quality: 0.92 }),
+      ]);
+      const uploadedRecord = await uploadRefereeHeadshotAssets({
+        nameKey: selectedAssignedNameKey,
+        originalFileName: file.name,
+        previewBlob,
+        fullBlob,
+      });
       setPreferences((current) => sanitizeRefereeHeadshotPreferences({
         ...current,
         uploadedImagesByNameKey: {
           ...(current.uploadedImagesByNameKey || {}),
-          [selectedAssignedNameKey]: {
-            fileName: file.name,
-            dataUrl,
-          },
+          [selectedAssignedNameKey]: uploadedRecord,
         },
       }));
-      setUploadMessage("Replacement image saved.");
+      setUploadMessage("Replacement image uploaded.");
     } catch (error) {
       setUploadMessage(error?.message || "Upload failed.");
     } finally {
@@ -542,8 +623,12 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
     }
   };
 
-  const removeUploadedReplacement = () => {
+  const removeUploadedReplacement = async () => {
     if (!selectedAssignedNameKey) return;
+    const uploadedRecord = selectedUploadedImage;
+    if (uploadedRecord) {
+      await deleteUploadedRefereeHeadshotAssets(uploadedRecord);
+    }
     setPreferences((current) => {
       const nextUploads = { ...(current.uploadedImagesByNameKey || {}) };
       const nextPreferred = { ...(current.preferredImageIdsByNameKey || {}) };
@@ -603,15 +688,9 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
           type="text"
           value={manualRefereeDraft}
           onChange={(event) => setManualRefereeDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              addManualReferee();
-            }
-          }}
           placeholder="Add new referee"
         />
-        <button type="button" className={styles.secondaryButton} onClick={addManualReferee}>
+        <button type="button" className={styles.secondaryButton} onClick={addManualReferee} disabled={!manualRefereeDraft.trim()}>
           Add Referee
         </button>
         <input
@@ -692,9 +771,9 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                   <span className={styles.fieldHint}>Shows the uncropped uploaded source.</span>
                 </div>
                 <div className={styles.fullPreviewFrame}>
-                  {selectedPreviewSrc ? (
+                  {selectedFullPreviewSrc ? (
                     <img
-                      src={selectedPreviewSrc}
+                      src={selectedFullPreviewSrc}
                       alt={`${selectedItem.fullName} full preview`}
                       className={styles.fullPreviewImage}
                     />
@@ -874,7 +953,7 @@ export default function RefereeHeadshotsPreview({ embedded = false }) {
                         className={styles.groupItem}
                         onClick={chooseUploadedPhoto}
                       >
-                        <img src={selectedUploadedImage.dataUrl} alt={selectedUploadedImage.fileName} className={styles.groupThumb} />
+                        <img src={selectedUploadedImage.previewUrl || selectedUploadedImage.dataUrl} alt={selectedUploadedImage.fileName} className={styles.groupThumb} />
                         <div className={styles.groupMeta}>
                           <span>{selectedUploadedImage.fileName}</span>
                           <span>uploaded replacement</span>

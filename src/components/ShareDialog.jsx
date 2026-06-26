@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchVisibleProfiles } from "../accountData.js";
 import { useAuth } from "../auth/useAuth.js";
+import { Button, Dialog, StateMessage } from "./ui/index.js";
 import styles from "./ShareDialog.module.css";
 
 export default function ShareDialog({
@@ -57,30 +58,30 @@ export default function ShareDialog({
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div
-        className={styles.dialog}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className={styles.header}>
-          <div>
-            <div className={styles.kicker}>Sharing</div>
-            <h3 className={styles.title}>{title}</h3>
-          </div>
-          <button type="button" className={styles.closeButton} onClick={onClose}>
-            Close
-          </button>
-        </div>
-
+    <Dialog
+      open={open}
+      kicker="Sharing"
+      title={title}
+      onClose={onClose}
+      width="620px"
+      footer={(
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving..." : "Save Access"}
+          </Button>
+        </>
+      )}
+    >
         <div className={styles.helpText}>
           Select the specific staff members who should have access. Leave all unchecked to keep this private.
         </div>
 
         <div className={styles.list}>
           {visibleProfiles.length === 0 ? (
-            <div className={styles.empty}>No other active users are available to share with.</div>
+            <StateMessage>No other active users are available to share with.</StateMessage>
           ) : (
             visibleProfiles.map((profile) => {
               const checked = selectedIds.includes(profile.id);
@@ -103,17 +104,7 @@ export default function ShareDialog({
           )}
         </div>
 
-        {error ? <div className={styles.error}>{error}</div> : null}
-
-        <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={handleSave} disabled={submitting}>
-            {submitting ? "Saving..." : "Save Access"}
-          </button>
-        </div>
-      </div>
-    </div>
+        {error ? <StateMessage tone="error" className={styles.error}>{error}</StateMessage> : null}
+    </Dialog>
   );
 }

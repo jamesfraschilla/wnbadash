@@ -155,7 +155,7 @@ function getUserClient(authHeader: string) {
   });
 }
 
-async function requireActiveUser(userClient: ReturnType<typeof createClient>, req: Request) {
+async function requireActiveUser(userClient: any, req: Request) {
   const authHeader = req.headers.get("Authorization") || "";
   let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   if (!token) {
@@ -577,7 +577,12 @@ function aggregateRangeStats(
   return totals;
 }
 
-function buildRunSummary(scoringEvents: Array<Record<string, unknown>>, homeTeamId: string, awayTeamId: string) {
+function buildRunSummary(
+  scoringEvents: Array<Record<string, unknown>>,
+  homeTeamId: string,
+  awayTeamId: string,
+  regulationMinutes = 12,
+) {
   const bestByTeam: Record<string, { points: number; startLabel: string; endLabel: string } | null> = {
     [homeTeamId]: null,
     [awayTeamId]: null,
@@ -736,6 +741,7 @@ function buildMomentumBursts(
   scoringEvents: Array<Record<string, unknown>>,
   homeTeam: Record<string, unknown>,
   awayTeam: Record<string, unknown>,
+  regulationMinutes = 12,
 ) {
   const homeTeamId = String(homeTeam.teamId || "");
   const awayTeamId = String(awayTeam.teamId || "");
@@ -837,7 +843,10 @@ function buildLateSwingInsight(
 
   const startScore = findScoreAtOrBefore(actions, lateWindowStart, regulationMinutes);
   const endScore = findScoreAtOrBefore(actions, rangeEndElapsed, regulationMinutes);
-  const endEvents = scoringEvents.filter((event) => event.elapsed >= lateWindowStart && event.elapsed <= rangeEndElapsed);
+  const endEvents = scoringEvents.filter((event) => {
+    const elapsed = safeNumber(event.elapsed, 0);
+    return elapsed >= lateWindowStart && elapsed <= rangeEndElapsed;
+  });
   if (!endEvents.length) return null;
 
   const scoreMoments = [
@@ -927,7 +936,7 @@ function buildLateSwingInsight(
 
   if (!bestCandidate) return null;
 
-  const closingScores = endEvents.filter((event) => event.elapsed >= bestCandidate.peakElapsed);
+  const closingScores = endEvents.filter((event) => safeNumber(event.elapsed, 0) >= bestCandidate.peakElapsed);
   const scoringTeamId = bestCandidate.type === "collapse" ? bestCandidate.opponentId : bestCandidate.teamId;
   const scoringTeamPoints = closingScores
     .filter((event) => String(event.teamId || "") === scoringTeamId)
@@ -1172,9 +1181,9 @@ function buildFeaturePayload(
 
   const totals = aggregateRangeStats(rangeActions, scoringEvents, homeTeamId, awayTeamId);
   const playerTotals = buildPlayerRangeStats(rangeActions, scoringEvents);
-  const runs = buildRunSummary(scoringEvents, homeTeamId, awayTeamId);
+  const runs = buildRunSummary(scoringEvents, homeTeamId, awayTeamId, regulationMinutes);
   const gameFlow = buildGameFlowContext(scoreTimeline, homeTeam, awayTeam);
-  const momentumBursts = buildMomentumBursts(scoringEvents, homeTeam, awayTeam);
+  const momentumBursts = buildMomentumBursts(scoringEvents, homeTeam, awayTeam, regulationMinutes);
   const lateSwing = buildLateSwingInsight(
     actions,
     scoringEvents,
@@ -1597,7 +1606,7 @@ Deno.serve(async (req) => {
     return jsonResponse(405, { error: "Method not allowed." });
   }
 
-  let userClient;
+  let userClient: any;
   try {
     userClient = getUserClient(req.headers.get("Authorization") || "");
   } catch (error) {

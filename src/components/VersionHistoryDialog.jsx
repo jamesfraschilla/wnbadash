@@ -1,3 +1,4 @@
+import { Button, Dialog, StateMessage } from "./ui/index.js";
 import styles from "./VersionHistoryDialog.module.css";
 
 function formatVersionTimestamp(value) {
@@ -18,26 +19,16 @@ export default function VersionHistoryDialog({
   if (!open) return null;
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div
-        className={styles.dialog}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className={styles.header}>
-          <div>
-            <div className={styles.kicker}>History</div>
-            <h3 className={styles.title}>{title}</h3>
-          </div>
-          <button type="button" className={styles.closeButton} onClick={onClose}>
-            Close
-          </button>
-        </div>
-
+    <Dialog
+      open={open}
+      kicker="History"
+      title={title}
+      onClose={onClose}
+      width="760px"
+    >
         <div className={styles.list}>
           {versions.length === 0 ? (
-            <div className={styles.empty}>No previous versions are available yet.</div>
+            <StateMessage>No previous versions are available yet.</StateMessage>
           ) : (
             versions.map((version) => (
               <div key={version.id} className={styles.item}>
@@ -49,15 +40,14 @@ export default function VersionHistoryDialog({
                   {describeVersion ? describeVersion(version) : JSON.stringify(version.snapshot)}
                 </div>
                 {onRestore ? (
-                  <button type="button" className={styles.restoreButton} onClick={() => onRestore(version)}>
+                  <Button variant="primary" className={styles.restoreButton} onClick={() => onRestore(version)}>
                     Restore This Version
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             ))
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

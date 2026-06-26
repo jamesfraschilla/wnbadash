@@ -1,0 +1,192 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.buttonSm {
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.buttonMd {
+  min-height: 38px;
+  padding: 9px 12px;
+}
+
+.buttonPrimary {
+  border-color: transparent;
+  background: var(--highlight-text);
+  color: var(--bg);
+}
+
+.buttonSecondary {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.buttonGhost {
+  background: transparent;
+  color: var(--text);
+}
+
+.buttonDanger {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.dialog {
+  width: min(var(--dialog-width, 620px), 100%);
+  max-height: min(82vh, 800px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 24px 90px rgba(15, 23, 42, 0.35);
+  padding: 18px;
+}
+
+.dialogHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kicker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dialogTitle {
+  margin: 6px 0 0;
+  font-size: 1.1rem;
+}
+
+.dialogBody {
+  margin-top: 14px;
+}
+
+.dialogFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 14px;
+}
+
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 3px;
+}
+
+.tab {
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.tableWrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.stateMessage {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+.stateInfo {
+  border-color: #bae6fd;
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+.stateError {
+  border-color: #fecaca;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.stateSuccess {
+  border-color: #bbf7d0;
+  background: #dcfce7;
+  color: #166534;
+}

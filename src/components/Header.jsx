@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { fetchGamesByDate, filterGamesByLeague } from "../api.js";
+import { filterGamesByLeague } from "../api.js";
+import { useGamesByDate } from "../queries.js";
 import { formatDateInput, formatDateLabel, parseDateInput } from "../utils.js";
 import GameCard from "./GameCard.jsx";
 import styles from "./Header.module.css";
@@ -18,9 +18,7 @@ export default function Header({ theme, onToggleTheme, onSignOut, profile, isAdm
   const dateInput = formatDateInput(date);
   const dateLabel = formatDateLabel(date);
 
-  const { data: games = [] } = useQuery({
-    queryKey: ["headerGames", dateInput],
-    queryFn: () => fetchGamesByDate(dateInput),
+  const { data: games = [] } = useGamesByDate(dateInput, {
     refetchInterval: (query) =>
       query.state.data?.some((g) => g.gameStatus === 2) ? 30_000 : false,
   });

@@ -8,6 +8,7 @@ import {
   readLegacyNoteImportState,
   writeLegacyNoteImportState,
 } from "../notesStorage.js";
+import { Button, Dialog, StateMessage } from "./ui/index.js";
 import styles from "./LegacyNotesImportPrompt.module.css";
 
 export default function LegacyNotesImportPrompt() {
@@ -64,24 +65,28 @@ export default function LegacyNotesImportPrompt() {
   };
 
   return (
-    <div className={styles.overlay}>
-      <div className={styles.dialog} role="dialog" aria-modal="true">
-        <div className={styles.kicker}>Local Notes Found</div>
-        <h3 className={styles.title}>Import notes from this device?</h3>
+    <Dialog
+      open={open}
+      kicker="Local Notes Found"
+      title="Import notes from this device?"
+      onClose={handleLater}
+      width="480px"
+      footer={(
+        <>
+          <Button variant="secondary" onClick={handleLater} disabled={submitting}>
+            Later
+          </Button>
+          <Button variant="primary" onClick={handleImport} disabled={submitting}>
+            {submitting ? "Importing..." : "Import Notes"}
+          </Button>
+        </>
+      )}
+    >
         <p className={styles.body}>
           We found {noteCount} previously saved local note{noteCount === 1 ? "" : "s"} in this browser.
           Importing will attach them to your account without deleting the original local copies.
         </p>
-        {message ? <div className={styles.message}>{message}</div> : null}
-        <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} onClick={handleLater} disabled={submitting}>
-            Later
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={handleImport} disabled={submitting}>
-            {submitting ? "Importing..." : "Import Notes"}
-          </button>
-        </div>
-      </div>
-    </div>
+        {message ? <StateMessage tone="info" className={styles.message}>{message}</StateMessage> : null}
+    </Dialog>
   );
 }

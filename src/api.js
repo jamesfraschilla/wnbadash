@@ -303,7 +303,7 @@ function buildCallsAgainstMap(actions, officials, homeTeam, awayTeam) {
 
     const officialRow = ensureOfficialRow(officialId);
     if (!officialRow) return;
-    officialRow[teamAbr] = safeNumber(officialRow[teamAbr], 0) + 1;
+    officialRow[teamAbr] = numberValue(officialRow[teamAbr]) + 1;
   });
 
   return callsAgainst;
@@ -917,19 +917,21 @@ export async function fetchGamesByDate(dateStr) {
 export async function fetchWnbaTeams() {
   const teams = new Map();
 
-  const rosters = await fetchWnbaRosters();
+  const rosterPayload = await fetchCurrentWnbaRosters();
+  const rosters = Object.values(rosterPayload?.teams || {});
   arrayValue(rosters).forEach((entry) => {
+    const fullName = stringValue(entry?.fullName, `${entry?.teamCity || ""} ${entry?.teamName || ""}`);
     const normalized = {
       teamId: stringValue(entry?.teamId),
-      teamTricode: stringValue(entry?.team?.tricode),
-      teamCity: stringValue(entry?.team?.fullName).split(" ").slice(0, -1).join(" "),
-      teamName: stringValue(entry?.team?.fullName).split(" ").slice(-1).join(" "),
+      teamTricode: stringValue(entry?.teamTricode, entry?.tricode),
+      teamCity: fullName.split(" ").slice(0, -1).join(" "),
+      teamName: fullName.split(" ").slice(-1).join(" "),
     };
-    if (!normalized.teamId || !stringValue(entry?.team?.fullName)) return;
+    if (!normalized.teamId || !fullName) return;
     teams.set(normalized.teamId, {
       teamId: normalized.teamId,
       tricode: normalized.teamTricode,
-      fullName: stringValue(entry?.team?.fullName),
+      fullName,
     });
   });
 

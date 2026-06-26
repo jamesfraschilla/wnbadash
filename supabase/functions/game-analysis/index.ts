@@ -794,7 +794,10 @@ function buildLateSwingInsight(
 
   const startScore = findScoreAtOrBefore(actions, lateWindowStart, regulationMinutes);
   const endScore = findScoreAtOrBefore(actions, rangeEndElapsed, regulationMinutes);
-  const endEvents = scoringEvents.filter((event) => event.elapsed >= lateWindowStart && event.elapsed <= rangeEndElapsed);
+  const endEvents = scoringEvents.filter((event) => {
+    const elapsed = safeNumber(event.elapsed, 0);
+    return elapsed >= lateWindowStart && elapsed <= rangeEndElapsed;
+  });
   if (!endEvents.length) return null;
 
   const scoreMoments = [
@@ -884,7 +887,7 @@ function buildLateSwingInsight(
 
   if (!bestCandidate) return null;
 
-  const closingScores = endEvents.filter((event) => event.elapsed >= bestCandidate.peakElapsed);
+  const closingScores = endEvents.filter((event) => safeNumber(event.elapsed, 0) >= bestCandidate.peakElapsed);
   const scoringTeamId = bestCandidate.type === "collapse" ? bestCandidate.opponentId : bestCandidate.teamId;
   const scoringTeamPoints = closingScores
     .filter((event) => String(event.teamId || "") === scoringTeamId)

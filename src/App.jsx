@@ -5,7 +5,6 @@ import AuthGate from "./components/AuthGate.jsx";
 import LegacyNotesImportPrompt from "./components/LegacyNotesImportPrompt.jsx";
 import PasswordResetGate from "./components/PasswordResetGate.jsx";
 import { useAuth } from "./auth/useAuth.js";
-import { syncRemoteRefereeHeadshotState } from "./refereeHeadshots.js";
 import { readLocalStorage, writeLocalStorage } from "./storage.js";
 
 const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
@@ -43,6 +42,16 @@ function RouteLoadingFallback() {
   return <div style={{ padding: "40px 16px", textAlign: "center" }}>Loading page...</div>;
 }
 
+function scheduleIdleWork(callback, timeout = 5000) {
+  if (typeof window === "undefined") return () => {};
+  if (typeof window.requestIdleCallback === "function") {
+    const callbackId = window.requestIdleCallback(callback, { timeout });
+    return () => window.cancelIdleCallback?.(callbackId);
+  }
+  const timeoutId = window.setTimeout(callback, Math.min(timeout, 1500));
+  return () => window.clearTimeout(timeoutId);
+}
+
 export default function App() {
   const [theme, setTheme] = useState(() => readLocalStorage("theme") || "light");
   const [updateFingerprint, setUpdateFingerprint] = useState("");
@@ -68,25 +77,14 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    if (!user?.id) return undefined;
-
-    const syncHeadshots = () => {
-      syncRemoteRefereeHeadshotState(user.id).catch(() => {});
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        syncHeadshots();
-      }
-    };
-
-    syncHeadshots();
-    window.addEventListener("focus", syncHeadshots);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.removeEventListener("focus", syncHeadshots);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    if (user?.id) {
+      return scheduleIdleWork(() => {
+        import("./refereeHeadshots.js")
+          .then(({ syncRemoteRefereeHeadshotState }) => syncRemoteRefereeHeadshotState(user.id))
+          .catch(() => {});
+      });
+    }
+    return undefined;
   }, [user?.id]);
 
   useEffect(() => {
