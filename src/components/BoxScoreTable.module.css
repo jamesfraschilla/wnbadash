@@ -1,15 +1,18 @@
 .tableWrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  display: inline-block;
-  background: var(--panel);
+  display: block;
+  width: min(100%, 1120px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .table {
-  width: auto;
-  border-collapse: collapse;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
   min-width: 720px;
   color: var(--text);
@@ -17,21 +20,33 @@
 }
 
 .headerRow {
-  border-top: 2px solid var(--text);
-  border-bottom: 2px solid var(--text);
-  background-color: color-mix(in srgb, var(--panel-strong) 42%, transparent);
+  background: var(--table-header-bg);
 }
 
 .table th,
 .table td {
-  padding: 5px 4px;
+  padding: 7px 7px;
+  border-bottom: 1px solid var(--border);
   text-align: center;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
+.table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.table tbody tr:nth-child(even):not(.totalsRow):not(.totalsPercentRow) td {
+  background-color: var(--table-stripe-bg);
+}
+
 .atcSeparator {
-  border-right: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-right: 1px solid var(--border-strong);
 }
 
 .playerNumberCol {
@@ -42,7 +57,7 @@
   padding-right: 6px;
   position: sticky;
   left: 0;
-  background-color: color-mix(in srgb, var(--panel) 86%, var(--bg));
+  background-color: var(--table-sticky-bg);
   z-index: 1;
 }
 
@@ -53,8 +68,9 @@
   padding-right: 20px;
   position: sticky;
   left: var(--player-number-width);
-  background-color: color-mix(in srgb, var(--panel) 86%, var(--bg));
+  background-color: var(--table-sticky-bg);
   z-index: 1;
+  box-shadow: var(--shadow-inset-left);
 }
 
 .table th.playerNameCol,
@@ -65,7 +81,6 @@
 .table th.playerNumberCol,
 .table th.playerNameCol {
   z-index: 2;
-  background-color: color-mix(in srgb, var(--panel-strong) 78%, var(--bg));
 }
 
 .teamLogoHeader {
@@ -82,7 +97,8 @@
 
 .teamHeaderText {
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  color: var(--text);
 }
 
 .playerName {
@@ -108,23 +124,28 @@
   background-color: var(--row-hover);
 }
 
-.table tbody tr + tr {
-  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+.table tbody tr:hover td,
+.table tbody tr:hover .playerNumberCol,
+.table tbody tr:hover .playerNameCol {
+  background-color: var(--row-hover);
 }
 
 .shadedColumn {
-  background-color: color-mix(in srgb, var(--panel-strong) 72%, transparent);
-  border-left: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+  background-color: color-mix(in srgb, var(--panel) 78%, var(--surface) 22%);
+  border-left: 1px solid color-mix(in srgb, var(--border) 76%, transparent 24%);
 }
 
 .table tbody tr:hover .shadedColumn {
-  background-color: color-mix(in srgb, var(--row-hover) 88%, var(--panel-strong));
+  background-color: var(--row-hover);
 }
 
 .totalsRow {
-  font-weight: 600;
-  border-top: 1px solid var(--border);
-  background-color: color-mix(in srgb, var(--panel-strong) 55%, transparent);
+  font-weight: 800;
+  background: color-mix(in srgb, var(--panel-strong) 82%, var(--surface) 18%);
+}
+
+.totalsRow td {
+  border-top: 1px solid var(--border-strong);
 }
 
 .totalsRowAtc {
@@ -134,7 +155,11 @@
 .totalsPercentRow {
   font-size: 12px;
   color: var(--muted);
-  background-color: color-mix(in srgb, var(--panel-strong) 28%, transparent);
+  background: color-mix(in srgb, var(--panel) 88%, var(--surface) 12%);
+}
+
+.totalsPercentRow td {
+  border-bottom: none;
 }
 
 .pfBlack {
