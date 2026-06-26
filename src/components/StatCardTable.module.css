@@ -1,4 +1,4 @@
-.section {
+.card {
   margin: 10px 0;
   align-self: center;
   width: 100%;
@@ -14,15 +14,15 @@
   justify-content: center;
 }
 
-html:not([data-theme="dark"]) .section {
+html:not([data-theme="dark"]) .card {
   border-color: #d1d5db;
 }
 
 .title {
-  text-align: center;
   font-size: 22px;
   font-weight: 600;
   margin: 0 0 10px;
+  text-align: center;
   text-decoration: none;
   color: var(--text);
 }
@@ -81,7 +81,7 @@ html:not([data-theme="dark"]) .section {
 }
 
 @media (max-width: 768px) {
-  .section {
+  .card {
     margin: 10px 0 0;
     min-height: 0;
     padding: 14px;
@@ -93,7 +93,7 @@ html:not([data-theme="dark"]) .section {
   }
 
   .table {
-    grid-template-columns: minmax(90px, 1fr) repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(104px, 1fr) repeat(2, minmax(0, 1fr));
     column-gap: 4px;
     row-gap: 5px;
     width: 100%;

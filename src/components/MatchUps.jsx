@@ -242,14 +242,20 @@ function sortLineupByHeight(players, profileMap) {
     .sort((a, b) => {
       const aHeight = a.heightIn ?? Number.NEGATIVE_INFINITY;
       const bHeight = b.heightIn ?? Number.NEGATIVE_INFINITY;
-      if (aHeight !== bHeight) return bHeight - aHeight;
-      if (a.rank !== b.rank) return b.rank - a.rank;
+      if (aHeight !== bHeight) return aHeight - bHeight;
+      if (a.rank !== b.rank) return a.rank - b.rank;
       const aJersey = Number.isFinite(a.jersey) ? a.jersey : Number.POSITIVE_INFINITY;
       const bJersey = Number.isFinite(b.jersey) ? b.jersey : Number.POSITIVE_INFINITY;
       if (aJersey !== bJersey) return aJersey - bJersey;
       return a.index - b.index;
     })
     .map(({ player }) => player);
+}
+
+function determineMatchupAnchorSide(awayRow, homeRow) {
+  if (isPriorityMatchupTeam(awayRow.teamId)) return "away";
+  if (isPriorityMatchupTeam(homeRow.teamId)) return "home";
+  return "home";
 }
 
 function hasExplicitSmartCriteria(profile) {
@@ -451,11 +457,7 @@ function buildSmartMatchupSlotIds(awayRow, homeRow, profileMap, smartCriteriaPro
     };
   }
 
-  const anchorSide = isPriorityMatchupTeam(awayRow.teamId)
-    ? "away"
-    : isPriorityMatchupTeam(homeRow.teamId)
-      ? "home"
-      : "away";
+  const anchorSide = determineMatchupAnchorSide(awayRow, homeRow);
   const anchorRow = anchorSide === "away" ? awayRow : homeRow;
   const opponentRow = anchorSide === "away" ? homeRow : awayRow;
 
@@ -467,38 +469,6 @@ function buildSmartMatchupSlotIds(awayRow, homeRow, profileMap, smartCriteriaPro
   const sortedOpponentPlayers = hasSmartCriteria
     ? chooseBestOpponentOrdering(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap)
     : chooseBestOpponentOrderingByHeight(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap);
-
-  return anchorSide === "away"
-    ? {
-      away: sortedAnchorPlayers.map((player) => player.personId),
-      home: sortedOpponentPlayers.map((player) => player.personId),
-    }
-    : {
-      away: sortedOpponentPlayers.map((player) => player.personId),
-      home: sortedAnchorPlayers.map((player) => player.personId),
-    };
-}
-
-function buildHeightMatchupSlotIds(awayRow, homeRow, profileMap) {
-  const awayPlayers = awayRow.players.filter(Boolean);
-  const homePlayers = homeRow.players.filter(Boolean);
-  if (awayPlayers.length !== ROW_SLOT_COUNT || homePlayers.length !== ROW_SLOT_COUNT) {
-    return {
-      away: awayRow.slotIds,
-      home: homeRow.slotIds,
-    };
-  }
-
-  const anchorSide = isPriorityMatchupTeam(awayRow.teamId)
-    ? "away"
-    : isPriorityMatchupTeam(homeRow.teamId)
-      ? "home"
-      : "away";
-  const anchorRow = anchorSide === "away" ? awayRow : homeRow;
-  const opponentRow = anchorSide === "away" ? homeRow : awayRow;
-
-  const sortedAnchorPlayers = sortLineupByHeight(anchorRow.players.filter(Boolean), profileMap);
-  const sortedOpponentPlayers = chooseBestOpponentOrderingByHeight(sortedAnchorPlayers, opponentRow.players.filter(Boolean), profileMap);
 
   return anchorSide === "away"
     ? {
@@ -1757,7 +1727,7 @@ export default function MatchUps({
   const handleSmartReorder = () => {
     setPickerState(null);
     setRefreshMenuOpen(false);
-    const smartSlotIds = buildHeightMatchupSlotIds(renderedAwayRow, renderedHomeRow, matchupProfileMap);
+    const smartSlotIds = buildSmartMatchupSlotIds(renderedAwayRow, renderedHomeRow, matchupProfileMap, remoteMatchupProfileMap);
     setPersistedState((current) => ({
       ...current,
       slots: {

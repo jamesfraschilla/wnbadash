@@ -98,8 +98,10 @@
   margin: 14px 0 22px;
   overflow-x: auto;
   width: min(100%, 860px);
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   user-select: none;
   -webkit-user-select: none;
@@ -919,6 +921,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   gap: 12px;
   margin-top: 8px;
   margin-bottom: 20px;
+  max-width: 100%;
 }
 
 .navRowTight {
@@ -926,6 +929,9 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
 }
 
 .navRow a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 12px;
   font-size: 14px;
   line-height: 1;
@@ -986,7 +992,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
 }
@@ -1042,5 +1048,26 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   .possessionPlaceholder {
     width: 14px;
     height: 14px;
+  }
+
+  .navRow {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 26px), transparent 100%);
+  }
+
+  .navRow::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navRow a,
+  .navButton {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 7px 10px;
   }
 }

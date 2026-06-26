@@ -18,7 +18,7 @@ export default function Header({ theme, onToggleTheme, onSignOut, profile, isAdm
   const dateInput = formatDateInput(date);
   const dateLabel = formatDateLabel(date);
 
-  const { data: games = [] } = useGamesByDate(dateInput, {
+  const { data: games = [], isLoading, isFetching } = useGamesByDate(dateInput, {
     refetchInterval: (query) =>
       query.state.data?.some((g) => g.gameStatus === 2) ? 30_000 : false,
   });
@@ -155,7 +155,9 @@ export default function Header({ theme, onToggleTheme, onSignOut, profile, isAdm
 
         <div className={styles.gamesWrapper}>
           <div className={styles.gamesList}>
-            {orderedGames.length === 0 ? (
+            {isLoading || (isFetching && orderedGames.length === 0) ? (
+              <div className={styles.noGames}>Loading...</div>
+            ) : orderedGames.length === 0 ? (
               <div className={styles.noGames}>No games scheduled</div>
             ) : (
               orderedGames.map((game) => <GameCard key={game.gameId} game={game} />)
