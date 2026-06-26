@@ -31,8 +31,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
       - name: Verify toolchain
         if: steps.snapshot-secrets.outputs.should_run == 'true'
         run: |
@@ -40,7 +38,7 @@ jobs:
           npm --version
       - name: Install dependencies
         if: steps.snapshot-secrets.outputs.should_run == 'true'
-        run: npm ci
+        run: npm ci --no-audit --no-fund --loglevel verbose
       - name: Capture snapshots
         if: steps.snapshot-secrets.outputs.should_run == 'true'
         env:
