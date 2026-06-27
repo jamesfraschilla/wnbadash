@@ -1,12 +1,132 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { teamLogoUrl } from "../api.js";
 import { getGamePollingInterval } from "../gamePolling.js";
-import { useMinutes } from "../queries.js";
+import { useGame, useMinutes } from "../queries.js";
 import { isTrackedGame } from "../teamConfig.js";
+import { normalizeClock } from "../utils.js";
 import styles from "./Minutes.module.css";
 
-function StintCell({ stint, isLast, view }) {
+function normalizeActionText(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanSubName(value) {
+  return normalizeActionText(value)
+    .replace(/\s*\([^)]*\).*$/g, "")
+    .replace(/^sub(?:stitution)?\s*:?\s*/i, "")
+    .replace(/^in\s*:?\s*/i, "")
+    .replace(/^out\s*:?\s*/i, "")
+    .trim();
+}
+
+function normalizeNameForMatch(value) {
+  return cleanSubName(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getLastName(value) {
+  const cleaned = cleanSubName(value);
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "";
+  const suffixes = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
+  const last = parts[parts.length - 1].replace(/\./g, "").toLowerCase();
+  if (suffixes.has(last) && parts.length >= 2) {
+    return `${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+  }
+  if (parts.length === 2 && /^[A-Z]\.$/.test(parts[0])) return parts[1];
+  return parts[parts.length - 1];
+}
+
+function parseSubstitutionPair(action) {
+  const description = normalizeActionText(action?.description || "");
+  const match = /\bSUB(?:STITUTION)?\s*:?\s*(.+?)\s+FOR\s+(.+?)\s*$/i.exec(description);
+  if (!match) return null;
+  return {
+    inName: cleanSubName(match[1]),
+    outName: cleanSubName(match[2]),
+  };
+}
+
+function getActionPlayerName(action) {
+  return normalizeActionText(
+    action?.playerName ||
+      action?.playerNameI ||
+      action?.personName ||
+      action?.name,
+  );
+}
+
+function actionMatchesName(action, targetName) {
+  const playerName = normalizeNameForMatch(getActionPlayerName(action));
+  const target = normalizeNameForMatch(targetName);
+  const targetLast = normalizeNameForMatch(getLastName(targetName));
+  if (!playerName || (!target && !targetLast)) return false;
+  return playerName === target ||
+    playerName.endsWith(` ${target}`) ||
+    playerName.includes(target) ||
+    playerName === targetLast ||
+    playerName.endsWith(` ${targetLast}`);
+}
+
+function normalizeSubstitutionClock(clock) {
+  const normalized = normalizeClock(String(clock || ""));
+  const [minutes, seconds] = normalized.split(":");
+  if (seconds == null) return normalized;
+  const minuteNumber = Number(minutes);
+  return `${Number.isFinite(minuteNumber) ? minuteNumber : minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function substitutionLookupKey({ period, teamId, clock, personId }) {
+  return [
+    Number(period) || 0,
+    String(teamId || ""),
+    normalizeSubstitutionClock(clock),
+    String(personId || ""),
+  ].join("|");
+}
+
+function buildSubstitutionAnnotationLookup(actions) {
+  const lookup = new Map();
+  (Array.isArray(actions) ? actions : []).forEach((action) => {
+    const pair = parseSubstitutionPair(action);
+    const personId = String(action?.personId || "");
+    if (!pair || !personId) return;
+
+    const subType = String(action?.subType || "").toLowerCase();
+    const isIncomingAction = subType === "in" || (!subType && actionMatchesName(action, pair.inName));
+    if (!isIncomingAction) return;
+
+    const outgoingLastName = getLastName(pair.outName);
+    if (!outgoingLastName) return;
+
+    const keyParts = {
+      period: action.period,
+      teamId: action.teamId,
+      clock: action.clock,
+      personId,
+    };
+    lookup.set(substitutionLookupKey(keyParts), outgoingLastName);
+    lookup.set(substitutionLookupKey({ ...keyParts, teamId: "" }), outgoingLastName);
+  });
+  return lookup;
+}
+
+function StintCell({
+  stint,
+  isLast,
+  view,
+  period,
+  awayTeamId,
+  homeTeamId,
+  substitutionLookup,
+}) {
   const prevAway = new Set((stint.prevPlayersAway || []).map((player) => player.personId));
   const prevHome = new Set((stint.prevPlayersHome || []).map((player) => player.personId));
   const hasPrevAway = (stint.prevPlayersAway || []).length > 0;
@@ -27,6 +147,17 @@ function StintCell({ stint, isLast, view }) {
   const plusMinusLabel = view === "neutral"
     ? `${displayPlusMinus}`
     : `${displayPlusMinus > 0 ? "+" : ""}${displayPlusMinus}`;
+  const formatSubbedInName = (player, teamId) => {
+    const keyParts = {
+      period,
+      teamId,
+      clock: stint.startClock,
+      personId: player.personId,
+    };
+    const outgoingLastName = substitutionLookup.get(substitutionLookupKey(keyParts)) ||
+      substitutionLookup.get(substitutionLookupKey({ ...keyParts, teamId: "" }));
+    return outgoingLastName ? `${player.nameI} (${outgoingLastName})` : player.nameI;
+  };
 
   return (
     <div className={`${styles.stintCell} ${isLast ? styles.lastCell : ""}`}>
@@ -37,24 +168,34 @@ function StintCell({ stint, isLast, view }) {
         </span>
       </div>
       <div className={styles.playersSection}>
-        {stint.playersAway.map((player) => (
+        {stint.playersAway.map((player) => {
+          const isSubbedIn = hasPrevAway && !prevAway.has(player.personId);
+          return (
           <div
             key={player.personId}
-            className={hasPrevAway && !prevAway.has(player.personId) ? styles.subbedIn : ""}
+            className={isSubbedIn ? styles.subbedIn : ""}
           >
-            {player.nameI}
+            {isSubbedIn
+              ? formatSubbedInName(player, awayTeamId)
+              : player.nameI}
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className={styles.playersSection}>
-        {stint.playersHome.map((player) => (
+        {stint.playersHome.map((player) => {
+          const isSubbedIn = hasPrevHome && !prevHome.has(player.personId);
+          return (
           <div
             key={player.personId}
-            className={hasPrevHome && !prevHome.has(player.personId) ? styles.subbedIn : ""}
+            className={isSubbedIn ? styles.subbedIn : ""}
           >
-            {player.nameI}
+            {isSubbedIn
+              ? formatSubbedInName(player, homeTeamId)
+              : player.nameI}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -65,14 +206,24 @@ export default function Minutes() {
   const [params] = useSearchParams();
   const dateParam = params.get("d");
   const [view, setView] = useState("away");
+  const { data: game, isLoading: isGameLoading } = useGame(gameId, {
+    refetchInterval: (query) => getGamePollingInterval(query.state.data, {
+      isTrackedGame: isTrackedGame(query.state.data),
+    }),
+    refetchIntervalInBackground: true,
+  });
   const { data, isLoading, error } = useMinutes(gameId, {
     refetchInterval: (query) => getGamePollingInterval(query.state.data, {
       isTrackedGame: isTrackedGame(query.state.data),
     }),
     refetchIntervalInBackground: true,
   });
+  const substitutionLookup = useMemo(
+    () => buildSubstitutionAnnotationLookup(game?.playByPlayActions || []),
+    [game?.playByPlayActions],
+  );
 
-  if (isLoading) {
+  if (isLoading || (!game && isGameLoading)) {
     return <div className={styles.stateMessage}>Loading minutes data...</div>;
   }
 
@@ -147,6 +298,10 @@ export default function Minutes() {
                     stint={stint}
                     isLast={index === period.stints.length - 1}
                     view={view}
+                    period={period.period}
+                    awayTeamId={awayTeam.teamId}
+                    homeTeamId={homeTeam.teamId}
+                    substitutionLookup={substitutionLookup}
                   />
                 ))}
               </div>
