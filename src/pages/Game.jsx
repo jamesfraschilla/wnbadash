@@ -58,6 +58,7 @@ import {
   countPossessionsByTeam,
   segmentPeriods,
 } from "../segmentStats.js";
+import { getGamePollingInterval } from "../gamePolling.js";
 import { supabase } from "../supabaseClient.js";
 import { isTrackedGame } from "../teamConfig.js";
 import {
@@ -687,13 +688,17 @@ export default function Game({ variant = "full" }) {
 
   const { data: game, isLoading, error } = useGame(gameId, {
     segment: isWnbaGameId ? null : segmentParam,
-    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
+    refetchInterval: (query) => getGamePollingInterval(query.state.data, {
+      isTrackedGame: isTrackedGame(query.state.data),
+    }),
     refetchIntervalInBackground: true,
   });
 
   const { data: remoteMinutesData } = useMinutes(gameId, {
     enabled: Boolean(gameId),
-    refetchInterval: () => (game?.gameStatus === 3 ? false : 15_000),
+    refetchInterval: () => getGamePollingInterval(game, {
+      isTrackedGame: isTrackedGame(game),
+    }),
     refetchIntervalInBackground: true,
   });
   const minutesData = useMemo(

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { teamLogoUrl } from "../api.js";
+import { getGamePollingInterval } from "../gamePolling.js";
 import { useMinutes } from "../queries.js";
+import { isTrackedGame } from "../teamConfig.js";
 import styles from "./Minutes.module.css";
 
 function StintCell({ stint, isLast, view }) {
@@ -64,7 +66,9 @@ export default function Minutes() {
   const dateParam = params.get("d");
   const [view, setView] = useState("away");
   const { data, isLoading, error } = useMinutes(gameId, {
-    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
+    refetchInterval: (query) => getGamePollingInterval(query.state.data, {
+      isTrackedGame: isTrackedGame(query.state.data),
+    }),
     refetchIntervalInBackground: true,
   });
 

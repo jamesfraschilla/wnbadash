@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { filterGamesByLeague } from "../api.js";
+import { getGamesListPollingInterval } from "../gamePolling.js";
 import { useGamesByDate } from "../queries.js";
+import { isTrackedGame } from "../teamConfig.js";
 import { formatDateInput, formatDateLabel, parseDateInput } from "../utils.js";
 import GameCard from "./GameCard.jsx";
 import styles from "./Header.module.css";
@@ -19,8 +21,9 @@ export default function Header({ theme, onToggleTheme, onSignOut, profile, isAdm
   const dateLabel = formatDateLabel(date);
 
   const { data: games = [], isLoading, isFetching } = useGamesByDate(dateInput, {
-    refetchInterval: (query) =>
-      query.state.data?.some((g) => g.gameStatus === 2) ? 30_000 : false,
+    refetchInterval: (query) => getGamesListPollingInterval(filterGamesByLeague(query.state.data || [], "wnba"), {
+      isTrackedGame,
+    }),
   });
 
   const orderedGames = useMemo(() => {

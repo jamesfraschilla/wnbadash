@@ -3,8 +3,10 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { createNote } from "../accountData.js";
 import PlayerHeadshot from "../components/PlayerHeadshot.jsx";
 import { nbaEventVideoUrl, teamLogoUrl } from "../api.js";
+import { getGamePollingInterval } from "../gamePolling.js";
 import { useGame } from "../queries.js";
 import { useAuth } from "../auth/useAuth.js";
+import { isTrackedGame } from "../teamConfig.js";
 import {
   buildNoteFormFromAction,
   buildPlayByPlaySourceMeta,
@@ -63,7 +65,9 @@ export default function PlayByPlay() {
   const holdTargetRef = useRef(null);
 
   const { data: game, isLoading, error } = useGame(gameId, {
-    refetchInterval: (query) => (query.state.data?.gameStatus === 3 ? false : 15_000),
+    refetchInterval: (query) => getGamePollingInterval(query.state.data, {
+      isTrackedGame: isTrackedGame(query.state.data),
+    }),
     refetchIntervalInBackground: true,
   });
 

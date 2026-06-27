@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { filterGamesByLeague, teamLogoUrl } from "../api.js";
+import { getGamesListPollingInterval } from "../gamePolling.js";
 import { useGamesByDate } from "../queries.js";
+import { isTrackedGame } from "../teamConfig.js";
 import { formatDateInput, formatDateLabel, formatTipTime, gameStatusLabel, normalizeClock, parseDateInput } from "../utils.js";
 import styles from "./Home.module.css";
 
@@ -14,8 +16,9 @@ export default function Home() {
   const [, setParams] = useSearchParams();
 
   const { data: games = [], isLoading, error } = useGamesByDate(dateInput, {
-    refetchInterval: (query) =>
-      query.state.data?.some((game) => game.gameStatus === 2) ? 30_000 : false,
+    refetchInterval: (query) => getGamesListPollingInterval(filterGamesByLeague(query.state.data || [], "wnba"), {
+      isTrackedGame,
+    }),
     refetchIntervalInBackground: true,
   });
 
