@@ -692,12 +692,12 @@ export default function Game({ variant = "full" }) {
   });
 
   const { data: remoteMinutesData } = useMinutes(gameId, {
-    enabled: Boolean(gameId) && !isWnbaGameId,
+    enabled: Boolean(gameId),
     refetchInterval: () => (game?.gameStatus === 3 ? false : 15_000),
     refetchIntervalInBackground: true,
   });
   const minutesData = useMemo(
-    () => (isWnbaGameId ? buildMinutesDataFromGame(game) : remoteMinutesData),
+    () => remoteMinutesData || (isWnbaGameId ? buildMinutesDataFromGame(game) : null),
     [isWnbaGameId, game, remoteMinutesData]
   );
 

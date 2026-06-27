@@ -22,28 +22,17 @@ async function requestJson(url) {
 
 async function requestWnbaGamesByDate(dateStr) {
   const normalizedDate = normalizeDateOnly(dateStr);
-  const fallbackUrl = `${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`;
-  if (SUPABASE_FUNCTIONS_BASE) {
-    try {
-      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}&_=${Date.now()}`);
-    } catch {
-      return requestJson(fallbackUrl);
-    }
-  }
-  return requestJson(fallbackUrl);
+  return requestJson(`${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`);
 }
 
 async function requestWnbaGameById(gameId) {
   const normalizedGameId = padGameId(gameId);
-  const fallbackUrl = `${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`;
-  if (SUPABASE_FUNCTIONS_BASE) {
-    try {
-      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}&_=${Date.now()}`);
-    } catch {
-      return requestJson(fallbackUrl);
-    }
-  }
-  return requestJson(fallbackUrl);
+  return requestJson(`${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`);
+}
+
+async function requestWnbaMinutes(gameId) {
+  const normalizedGameId = padGameId(gameId);
+  return requestJson(`${API_BASE}/games/${encodeURIComponent(normalizedGameId)}/minutes`);
 }
 
 async function requestWnbaLiveGame(gameId) {
@@ -905,29 +894,9 @@ function hasHydratedWnbaGamePayload(game) {
 
 export async function fetchGamesByDate(dateStr) {
   const games = await requestWnbaGamesByDate(dateStr);
-  const normalizedGames = arrayValue(games)
+  return arrayValue(games)
     .map((game) => normalizeWnbaScheduleGame(game, String(game?.seasonYear || "")))
     .filter((game) => game.gameId && game.homeTeam.teamId && game.awayTeam.teamId);
-
-  return Promise.all(
-    normalizedGames.map(async (game) => {
-      if (game.gameStatus === 1) return game;
-      try {
-        const livePayload = await requestWnbaLiveGame(game.gameId);
-        return normalizeWnbaLiveGame(
-          livePayload.boxscore,
-          livePayload.playByPlay || {},
-          livePayload.advancedBoxScore || {}
-        );
-      } catch {
-        const fallbackGame = await fetchWnbaScheduleGameById(game.gameId).catch(() => null);
-        if (hasHydratedWnbaGamePayload(fallbackGame)) {
-          return fallbackGame;
-        }
-        return game;
-      }
-    })
-  );
 }
 
 export async function fetchWnbaTeams() {
@@ -963,6 +932,20 @@ export async function fetchGame(gameId, segment = null) {
     return requestJson(url);
   }
 
+  let cloudfrontError = null;
+  let cloudfrontGame = null;
+  try {
+    cloudfrontGame = await requestWnbaGameById(normalizedGameId);
+    if (hasHydratedWnbaGamePayload(cloudfrontGame)) {
+      return cloudfrontGame;
+    }
+    if (cloudfrontGame?.gameId && cloudfrontGame.gameStatus === 1) {
+      return buildPregameWnbaGame(cloudfrontGame, String(cloudfrontGame?.seasonYear || ""));
+    }
+  } catch (error) {
+    cloudfrontError = error;
+  }
+
   const liveGameResult = await requestWnbaLiveGame(normalizedGameId).catch((error) => ({ error }));
   if (!liveGameResult?.error) {
     return normalizeWnbaLiveGame(
@@ -972,15 +955,11 @@ export async function fetchGame(gameId, segment = null) {
     );
   }
 
-  const scheduledGame = await fetchWnbaScheduleGameById(normalizedGameId);
-  if (scheduledGame?.gameId) {
-    if (hasHydratedWnbaGamePayload(scheduledGame)) {
-      return scheduledGame;
-    }
-    return buildPregameWnbaGame(scheduledGame, String(scheduledGame?.seasonYear || ""));
+  if (cloudfrontGame?.gameId) {
+    return buildPregameWnbaGame(cloudfrontGame, String(cloudfrontGame?.seasonYear || ""));
   }
 
-  throw liveGameResult.error;
+  throw cloudfrontError || liveGameResult.error;
 }
 
 export async function fetchWnbaFeedHealth(gameId) {
@@ -1016,12 +995,17 @@ export async function fetchWnbaFeedHealth(gameId) {
 
 export async function fetchMinutes(gameId) {
   const normalizedGameId = padGameId(gameId);
+  const url = `${API_BASE}/games/${encodeURIComponent(normalizedGameId)}/minutes`;
   if (!normalizedGameId.startsWith("10")) {
-    const url = `${API_BASE}/games/${gameId}/minutes`;
     return requestJson(url);
   }
-  const game = await fetchGame(normalizedGameId);
-  return buildWnbaMinutesData(game);
+
+  try {
+    return await requestWnbaMinutes(normalizedGameId);
+  } catch {
+    const game = await fetchGame(normalizedGameId);
+    return buildWnbaMinutesData(game);
+  }
 }
 
 export function buildMinutesDataFromGame(game) {
