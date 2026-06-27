@@ -601,6 +601,7 @@ html[data-theme="dark"] .pbpWheel {
   display: flex;
   align-items: flex-start;
   gap: 14px;
+  padding-top: clamp(48px, 4.8vw, 72px);
 }
 
 .awaySide {
@@ -794,17 +795,9 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding-top: 40px;
+  padding-top: clamp(86px, 6.2vw, 108px);
   grid-area: center;
   min-width: 300px;
-}
-
-.dash {
-  font-size: 56px;
-  font-weight: 400;
-  color: var(--text);
-  line-height: 1;
-  margin: 0;
 }
 
 .statLabel {
@@ -1013,13 +1006,14 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   .teamSide {
     gap: 8px;
     width: auto;
+    padding-top: 34px;
   }
 
   .centerColumn {
     gap: 9px;
     width: auto;
     min-width: 168px;
-    padding-top: 28px;
+    padding-top: 64px;
   }
 
   .teamLogo {
@@ -1109,6 +1103,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
     justify-content: center;
     gap: 6px;
     min-width: 0;
+    padding-top: 0;
   }
 
   .awaySide,
@@ -1148,10 +1143,6 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   .centerMetricRow {
     grid-template-columns: minmax(38px, 1fr) minmax(68px, auto) minmax(38px, 1fr);
     column-gap: 10px;
-  }
-
-  .dash {
-    display: none;
   }
 
   .timeoutsNumbers,

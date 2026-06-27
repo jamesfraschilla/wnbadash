@@ -2167,7 +2167,6 @@ export default function Game({ variant = "full" }) {
           </div>
 
           <div className={styles.centerColumn}>
-            <div className={styles.dash}>-</div>
             {showExtras && (
               <div className={styles.centerMetrics}>
                 <div className={styles.centerMetricRow}>
