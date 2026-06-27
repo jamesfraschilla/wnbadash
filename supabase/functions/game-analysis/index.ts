@@ -18,6 +18,7 @@ function jsonResponse(status: number, payload: Record<string, unknown>) {
   });
 }
 
+
 function safeNumber(value: unknown, fallback = 0) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -315,10 +316,10 @@ function getActionPlayerIdentity(action: Record<string, unknown>) {
     "",
   ).trim();
   const name = String(
-    action.playerNameI ||
-    action.playerName ||
-    action.nameI ||
     action.fullName ||
+    action.playerName ||
+    action.playerNameI ||
+    action.nameI ||
     action.player ||
     "",
   ).trim();
@@ -920,10 +921,10 @@ function buildLateSwingInsight(
   const team = teamLookup[bestCandidate.teamId];
   const opponent = teamLookup[bestCandidate.opponentId];
   const finishText = bestCandidate.finalMargin < 0
-    ? `ended the span trailing by ${Math.abs(bestCandidate.finalMargin)}`
+    ? `were outscored by ${Math.abs(bestCandidate.finalMargin)} over the rest of the span`
     : bestCandidate.finalMargin === 0
-      ? "only got to the horn tied"
-      : `still finished ahead by ${bestCandidate.finalMargin}`;
+      ? "played the rest of the span even"
+      : `won the rest of the span by ${bestCandidate.finalMargin}`;
   const title = bestCandidate.type === "collapse" ? "Late Collapse" : "Late Comeback";
 
   return {
@@ -1296,7 +1297,7 @@ function buildInsightSignals(features: ReturnType<typeof buildFeaturePayload>) {
       strength: Math.abs(home.totals.paintPoints - away.totals.paintPoints),
       items: [
         `${home.tricode} paint points: ${home.totals.paintPoints}. ${away.tricode} paint points: ${away.totals.paintPoints}.`,
-        `${home.tricode} rim scoring was ${home.totals.rimFieldGoalsMade}-${home.totals.rimFieldGoalsAttempted}; ${away.tricode} was ${away.totals.rimFieldGoalsMade}-${away.totals.rimFieldGoalsAttempted}.`,
+        `${home.tricode} rim scoring was ${home.totals.rimFieldGoalsMade}/${home.totals.rimFieldGoalsAttempted}; ${away.tricode} was ${away.totals.rimFieldGoalsMade}/${away.totals.rimFieldGoalsAttempted}.`,
       ],
     },
     {
@@ -1313,8 +1314,8 @@ function buildInsightSignals(features: ReturnType<typeof buildFeaturePayload>) {
       title: "Shooting",
       strength: Math.abs(home.shooting.fgPct - away.shooting.fgPct) + (margin * 0.5),
       items: [
-        `${home.tricode} shot ${home.totals.fieldGoalsMade}-${home.totals.fieldGoalsAttempted} (${home.shooting.fgPct}%) versus ${away.tricode} at ${away.totals.fieldGoalsMade}-${away.totals.fieldGoalsAttempted} (${away.shooting.fgPct}%).`,
-        `${home.tricode} from three: ${home.totals.threePointersMade}-${home.totals.threePointersAttempted}; ${away.tricode}: ${away.totals.threePointersMade}-${away.totals.threePointersAttempted}.`,
+        `${home.tricode} shot ${home.totals.fieldGoalsMade}/${home.totals.fieldGoalsAttempted} (${home.shooting.fgPct}%) versus ${away.tricode} at ${away.totals.fieldGoalsMade}/${away.totals.fieldGoalsAttempted} (${away.shooting.fgPct}%).`,
+        `${home.tricode} from three: ${home.totals.threePointersMade}/${home.totals.threePointersAttempted}; ${away.tricode}: ${away.totals.threePointersMade}/${away.totals.threePointersAttempted}.`,
       ],
     },
     {
@@ -1334,7 +1335,7 @@ function buildInsightSignals(features: ReturnType<typeof buildFeaturePayload>) {
       title: "Free Throws",
       strength: Math.abs(home.totals.freeThrowsAttempted - away.totals.freeThrowsAttempted),
       items: [
-        `${home.tricode} free throws: ${home.totals.freeThrowsMade}-${home.totals.freeThrowsAttempted}. ${away.tricode}: ${away.totals.freeThrowsMade}-${away.totals.freeThrowsAttempted}.`,
+        `${home.tricode} free throws: ${home.totals.freeThrowsMade}/${home.totals.freeThrowsAttempted}. ${away.tricode}: ${away.totals.freeThrowsMade}/${away.totals.freeThrowsAttempted}.`,
       ],
     },
     {
@@ -1464,12 +1465,12 @@ function buildStatOutliers(features: ReturnType<typeof buildFeaturePayload>) {
     notes.push(...features.playerNotes.slice(0, 2));
   }
 
-  notes.push(`${home.tricode} shot ${home.totals.fieldGoalsMade}-${home.totals.fieldGoalsAttempted} (${home.shooting.fgPct}%) versus ${away.tricode} at ${away.totals.fieldGoalsMade}-${away.totals.fieldGoalsAttempted} (${away.shooting.fgPct}%).`);
-  notes.push(`${home.tricode} rim scoring was ${home.totals.rimFieldGoalsMade}-${home.totals.rimFieldGoalsAttempted}; ${away.tricode} was ${away.totals.rimFieldGoalsMade}-${away.totals.rimFieldGoalsAttempted}.`);
-  notes.push(`${home.tricode} from three: ${home.totals.threePointersMade}-${home.totals.threePointersAttempted}; ${away.tricode}: ${away.totals.threePointersMade}-${away.totals.threePointersAttempted}.`);
+  notes.push(`${home.tricode} shot ${home.totals.fieldGoalsMade}/${home.totals.fieldGoalsAttempted} (${home.shooting.fgPct}%) versus ${away.tricode} at ${away.totals.fieldGoalsMade}/${away.totals.fieldGoalsAttempted} (${away.shooting.fgPct}%).`);
+  notes.push(`${home.tricode} rim scoring was ${home.totals.rimFieldGoalsMade}/${home.totals.rimFieldGoalsAttempted}; ${away.tricode} was ${away.totals.rimFieldGoalsMade}/${away.totals.rimFieldGoalsAttempted}.`);
+  notes.push(`${home.tricode} from three: ${home.totals.threePointersMade}/${home.totals.threePointersAttempted}; ${away.tricode}: ${away.totals.threePointersMade}/${away.totals.threePointersAttempted}.`);
 
   if (home.totals.freeThrowsAttempted !== away.totals.freeThrowsAttempted) {
-    notes.push(`${home.tricode} free throws: ${home.totals.freeThrowsMade}-${home.totals.freeThrowsAttempted}; ${away.tricode}: ${away.totals.freeThrowsMade}-${away.totals.freeThrowsAttempted}.`);
+    notes.push(`${home.tricode} free throws: ${home.totals.freeThrowsMade}/${home.totals.freeThrowsAttempted}; ${away.tricode}: ${away.totals.freeThrowsMade}/${away.totals.freeThrowsAttempted}.`);
   }
 
   return notes.slice(0, 4);
@@ -1505,6 +1506,29 @@ function buildTemplateAnalysis(features: ReturnType<typeof buildFeaturePayload>)
   };
 }
 
+function sanitizeAiHeadline(headline: string, features: ReturnType<typeof buildFeaturePayload>) {
+  const trimmed = String(headline || "").trim();
+  if (!trimmed) return "";
+
+  const endingMargin = Math.max(
+    Math.abs(safeNumber(features?.score?.margin?.home, 0)),
+    Math.abs(safeNumber(features?.score?.margin?.away, 0)),
+  );
+  const largestLead = Object.values(features?.gameFlow?.largestLead || {}).reduce((max, entry) => {
+    const points = safeNumber((entry as { points?: number } | null)?.points, 0);
+    return Math.max(max, points);
+  }, 0);
+
+  if (!largestLead || largestLead === endingMargin) return trimmed;
+  if (/largest lead|peaked at|as large as|as many as/i.test(trimmed)) return trimmed;
+
+  return trimmed.replace(/\b((?:a|an|the)\s+)?(\d+)[-\s]?point lead\b/gi, (match, article = "", rawNumber = "") => {
+    const leadNumber = Number(rawNumber);
+    if (!Number.isFinite(leadNumber) || leadNumber === endingMargin || leadNumber !== largestLead) return match;
+    return `${article}lead that peaked at ${leadNumber}`;
+  });
+}
+
 async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayload>) {
   const apiKey = Deno.env.get("OPENAI_API_KEY") || "";
   if (!apiKey) return null;
@@ -1512,6 +1536,7 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
   const systemPrompt = [
     "You are a basketball analyst.",
     "Use only the structured game data provided.",
+    "Use player names exactly as provided in the JSON input and do not expand initials into guessed full names.",
     "Do not invent stats, possessions, or player impact claims.",
     "Do not overstate player scoring share; if a player scored 10 points for a team that scored 38, do not say he scored all of the team's points.",
     "When citing team edges in categories like paint points or points off turnovers, name the team with the higher value.",
@@ -1522,6 +1547,12 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
     "If one theme clearly dominates, center the answer on that theme.",
     "When the data shows a late-game collapse, comeback, or dramatic final-minute swing, make that central to the analysis even if aggregate quarter stats point elsewhere.",
     "Use game-flow context such as lead changes, largest leads, and concentrated momentum bursts to describe how the stretch unfolded, not just who won the box-score categories.",
+    "Do not confuse largest lead within the stretch with the score or margin at the end of the stretch.",
+    "The headline follows the same rule: do not use bare 'N-point lead' wording unless N is the actual ending margin of the selected span.",
+    "If you say 'by the end of the quarter', 'by the end of the span', or similar, that statement must match score.end exactly.",
+    "If you mention the largest lead, label it explicitly as the largest lead or say the lead peaked there, and not the ending margin unless they are the same.",
+    "If a team won the selected quarter or span by N but did not finish the full game ahead by N, describe it as winning the quarter/span by N or outscoring the opponent by N in that stretch, not as finishing ahead/up by N.",
+    "Keep segment analysis anchored to full-game context when relevant: distinguish the scoring margin within the selected span from the actual game margin at the end of the game.",
     "Call out notable individual player stretches when the provided data clearly supports it, especially when one player drove a large share of a team's scoring in the selected window.",
     "Only mention lineup notes when they materially matter in the range.",
     "Return compact JSON with keys: headline, summary, sections.",
@@ -1565,7 +1596,7 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
   const parsed = JSON.parse(content);
   return {
     source: "ai",
-    headline: sanitizeTurnoverLanguage(parsed?.headline, features),
+    headline: sanitizeTurnoverLanguage(sanitizeAiHeadline(String(parsed?.headline || "").trim(), features), features),
     summary: sanitizeTurnoverLanguage(parsed?.summary, features),
     sections: Array.isArray(parsed?.sections)
       ? parsed.sections
