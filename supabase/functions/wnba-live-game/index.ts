@@ -30,9 +30,12 @@ function normalizeGameId(value: string) {
 
 async function fetchJson(url: string) {
   const response = await fetch(url, {
+    cache: "no-store",
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; Mystics Dashboard WNBA Live Game Resolver)",
       Accept: "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
     },
   });
 
@@ -163,6 +166,6 @@ Deno.serve(async (req) => {
       : { players: [], teams: [] },
   }), {
     "Content-Type": "application/json",
-    "Cache-Control": "public, max-age=30, s-maxage=30, stale-while-revalidate=300",
+    "Cache-Control": "no-store, max-age=0",
   });
 });

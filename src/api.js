@@ -13,7 +13,7 @@ const SUPABASE_FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL
   : "";
 
 async function requestJson(url) {
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
   if (!res.ok) {
     throw new Error(`Request failed: ${res.status}`);
   }
@@ -25,7 +25,7 @@ async function requestWnbaGamesByDate(dateStr) {
   const fallbackUrl = `${API_BASE}/games/byDate?date=${encodeURIComponent(normalizedDate)}`;
   if (SUPABASE_FUNCTIONS_BASE) {
     try {
-      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}`);
+      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?date=${encodeURIComponent(normalizedDate)}&_=${Date.now()}`);
     } catch {
       return requestJson(fallbackUrl);
     }
@@ -38,7 +38,7 @@ async function requestWnbaGameById(gameId) {
   const fallbackUrl = `${API_BASE}/games/${encodeURIComponent(normalizedGameId)}`;
   if (SUPABASE_FUNCTIONS_BASE) {
     try {
-      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}`);
+      return await requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-schedule?gameId=${encodeURIComponent(normalizedGameId)}&_=${Date.now()}`);
     } catch {
       return requestJson(fallbackUrl);
     }
@@ -49,7 +49,7 @@ async function requestWnbaGameById(gameId) {
 async function requestWnbaLiveGame(gameId) {
   const normalizedGameId = padGameId(gameId);
   if (SUPABASE_FUNCTIONS_BASE) {
-    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-live-game?gameId=${encodeURIComponent(normalizedGameId)}`);
+    return requestJson(`${SUPABASE_FUNCTIONS_BASE}/wnba-live-game?gameId=${encodeURIComponent(normalizedGameId)}&_=${Date.now()}`);
   }
 
   const [boxscore, playByPlay] = await Promise.all([
