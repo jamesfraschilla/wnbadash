@@ -601,7 +601,7 @@ html[data-theme="dark"] .pbpWheel {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding-top: clamp(48px, 4.8vw, 72px);
+  padding-top: clamp(20px, 2.4vw, 34px);
 }
 
 .awaySide {
@@ -795,7 +795,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  padding-top: clamp(86px, 6.2vw, 108px);
+  padding-top: clamp(42px, 3.4vw, 56px);
   grid-area: center;
   min-width: 300px;
 }
@@ -1006,14 +1006,14 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   .teamSide {
     gap: 8px;
     width: auto;
-    padding-top: 34px;
+    padding-top: 18px;
   }
 
   .centerColumn {
     gap: 9px;
     width: auto;
     min-width: 168px;
-    padding-top: 64px;
+    padding-top: 36px;
   }
 
   .teamLogo {
