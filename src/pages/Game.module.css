@@ -1100,9 +1100,12 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   }
 
   .teamSide {
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
     gap: 6px;
     min-width: 0;
+    width: 100%;
     padding-top: 0;
   }
 
@@ -1113,6 +1116,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
 
   .teamLogoColumn {
     min-width: 0;
+    order: 0;
   }
 
   .teamLogo {
@@ -1121,7 +1125,10 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   }
 
   .teamInfoStack {
+    order: 1;
+    align-items: center;
     min-width: 74px;
+    width: 100%;
     gap: 8px;
   }
 
@@ -1130,7 +1137,7 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
   }
 
   .centerColumn {
-    width: min(100%, 300px);
+    width: min(100%, 330px);
     min-width: 0;
     padding-top: 0;
     justify-self: center;
@@ -1138,11 +1145,29 @@ html:not([data-theme="dark"]) .challengeDot.challengeAvailable {
 
   .centerMetrics {
     gap: 8px;
+    width: min(100%, 330px);
   }
 
   .centerMetricRow {
-    grid-template-columns: minmax(38px, 1fr) minmax(68px, auto) minmax(38px, 1fr);
-    column-gap: 10px;
+    grid-template-columns: minmax(64px, 1fr) 92px minmax(64px, 1fr);
+    column-gap: 8px;
+    width: 100%;
+  }
+
+  .centerMetricRow .statValue:first-child {
+    text-align: right;
+  }
+
+  .centerMetricRow .statValue:last-child {
+    text-align: left;
+  }
+
+  .centerMetricRow .statLabel {
+    text-align: center;
+  }
+
+  .statValue {
+    font-variant-numeric: tabular-nums;
   }
 
   .timeoutsNumbers,
