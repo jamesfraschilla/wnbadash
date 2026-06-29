@@ -724,6 +724,8 @@ function buildMomentumBursts(
     points: number;
     opponentPoints: number;
     net: number;
+    startElapsed: number;
+    endElapsed: number;
     startLabel: string;
     endLabel: string;
   }> = {
@@ -759,6 +761,8 @@ function buildMomentumBursts(
             points: teamPoints,
             opponentPoints,
             net,
+            startElapsed,
+            endElapsed: safeNumber(nextEvent.elapsed, 0),
             startLabel: formatPointLabel(safeNumber(startEvent.period, 0), startEvent.clock, regulationMinutes, "start"),
             endLabel: formatPointLabel(safeNumber(nextEvent.period, 0), nextEvent.clock, regulationMinutes, "end"),
           };
@@ -767,10 +771,9 @@ function buildMomentumBursts(
     }
   }
 
-  return teamIds
+  const burstSummaries = teamIds
     .map((teamId) => bestByTeam[teamId])
     .filter(Boolean)
-    .sort((a, b) => b!.net - a!.net)
     .map((burst) => ({
       ...burst!,
       team: burst!.teamId === homeTeamId ? teamLabel(homeTeam) : teamLabel(awayTeam),
@@ -779,6 +782,24 @@ function buildMomentumBursts(
       ],
       strength: burst!.net,
     }));
+
+  if (burstSummaries.length <= 1) return burstSummaries;
+
+  const chronologicalItems = [...burstSummaries]
+    .sort((a, b) => a.startElapsed - b.startElapsed || b.net - a.net)
+    .map((burst, index) => {
+      const sequenceLabel = index === 0 ? "first major push" : "next major push";
+      return `${burst.team}'s ${sequenceLabel} was ${burst.points}-${burst.opponentPoints} from ${burst.startLabel} to ${burst.endLabel}.`;
+    });
+
+  const strongestBurst = [...burstSummaries]
+    .sort((a, b) => b.net - a.net || b.points - a.points)[0];
+
+  return [{
+    ...strongestBurst,
+    items: chronologicalItems,
+    strength: strongestBurst.strength,
+  }];
 }
 
 function scoreForTeam(score: { home: number; away: number }, teamId: string, homeTeamId: string, awayTeamId: string) {
@@ -964,12 +985,13 @@ function buildLineupInsights(
   regulationMinutes = 12,
 ) {
   const rangeSeconds = Math.max(1, rangeEndElapsed - rangeStartElapsed);
-  const stintNotes: Array<{
+  const lineupAggregates = new Map<string, {
     teamId: string;
     seconds: number;
     margin: number;
     players: string;
-  }> = [];
+    stintCount: number;
+  }>();
   const playerSplits = new Map<string, {
     teamId: string;
     name: string;
@@ -995,6 +1017,40 @@ function buildLineupInsights(
     entry.onMargin += margin;
   };
 
+  const lineupKey = (players: Array<Record<string, unknown>>) => {
+    const keys = (Array.isArray(players) ? players : [])
+      .map((player) => readableStringValue(player?.personId, player?.playerId, playerDisplayName(player)))
+      .filter(Boolean)
+      .sort();
+    return keys.length ? keys.join("|") : "";
+  };
+
+  const upsertLineup = (
+    teamId: string,
+    players: Array<Record<string, unknown>>,
+    margin: number,
+    seconds: number,
+  ) => {
+    if (!teamId || seconds <= 0) return;
+    const key = lineupKey(players);
+    const label = describeLineup(players);
+    if (!key || !label) return;
+    const aggregateKey = `${teamId}:${key}`;
+    if (!lineupAggregates.has(aggregateKey)) {
+      lineupAggregates.set(aggregateKey, {
+        teamId,
+        seconds: 0,
+        margin: 0,
+        players: label,
+        stintCount: 0,
+      });
+    }
+    const entry = lineupAggregates.get(aggregateKey)!;
+    entry.seconds += seconds;
+    entry.margin += margin;
+    entry.stintCount += 1;
+  };
+
   const periods = Array.isArray(minutesData?.periods) ? minutesData.periods : [];
   for (const periodRow of periods) {
     const period = safeNumber(periodRow?.period, 0);
@@ -1015,35 +1071,26 @@ function buildLineupInsights(
       const homePlayers = Array.isArray(stint.playersHome) ? stint.playersHome : [];
       const awayPlayers = Array.isArray(stint.playersAway) ? stint.playersAway : [];
 
-      stintNotes.push({
-        teamId: String(homeTeam.teamId),
-        seconds: overlapSeconds,
-        margin: weightedHomeMargin,
-        players: describeLineup(homePlayers),
-      });
-      stintNotes.push({
-        teamId: String(awayTeam.teamId),
-        seconds: overlapSeconds,
-        margin: weightedAwayMargin,
-        players: describeLineup(awayPlayers),
-      });
+      upsertLineup(String(homeTeam.teamId), homePlayers, weightedHomeMargin, overlapSeconds);
+      upsertLineup(String(awayTeam.teamId), awayPlayers, weightedAwayMargin, overlapSeconds);
 
       homePlayers.forEach((player) => upsertPlayer(String(homeTeam.teamId), player, weightedHomeMargin, overlapSeconds));
       awayPlayers.forEach((player) => upsertPlayer(String(awayTeam.teamId), player, weightedAwayMargin, overlapSeconds));
     }
   }
 
-  const topStints = [String(homeTeam.teamId), String(awayTeam.teamId)]
+  const topLineups = [String(homeTeam.teamId), String(awayTeam.teamId)]
     .map((teamId) => {
-      const ranked = stintNotes
+      const ranked = [...lineupAggregates.values()]
         .filter((entry) => entry.teamId === teamId && entry.seconds >= 60)
-        .sort((a, b) => b.margin - a.margin);
+        .sort((a, b) => b.margin - a.margin || b.seconds - a.seconds);
       return ranked[0] || null;
     })
     .filter(Boolean)
     .map((entry) => {
       const team = String(entry!.teamId) === String(homeTeam.teamId) ? homeTeam : awayTeam;
-      return `${teamLabel(team)} best stint: ${describeLineupString(entry!.players)} was ${formatSignedValue(Math.round(entry!.margin))} in ${formatSecondsClock(entry!.seconds)}.`;
+      const stintDetail = entry!.stintCount > 1 ? ` across ${entry!.stintCount} stints` : "";
+      return `${teamLabel(team)} best lineup: ${describeLineupString(entry!.players)} was ${formatSignedValue(Math.round(entry!.margin))} in ${formatSecondsClock(entry!.seconds)}${stintDetail}.`;
     });
 
   const playerNotes = [String(homeTeam.teamId), String(awayTeam.teamId)]
@@ -1073,7 +1120,7 @@ function buildLineupInsights(
     });
 
   return {
-    lineupNotes: [...topStints, ...playerNotes].slice(0, 4),
+    lineupNotes: [...topLineups, ...playerNotes].slice(0, 4),
   };
 }
 
@@ -1418,11 +1465,17 @@ function buildSwingFactors(features: ReturnType<typeof buildFeaturePayload>) {
       value: safeNumber(features.lateSwing?.strength, 0),
       text,
     })) : []),
-    ...(Array.isArray(features.momentumBursts) ? features.momentumBursts.slice(0, 1).map((burst) => ({
-      label: "momentumBurst",
-      value: safeNumber(burst.strength, 0),
-      text: burst.items[0],
-    })) : []),
+    ...(Array.isArray(features.momentumBursts)
+      ? features.momentumBursts.slice(0, 1).flatMap((burst) => (
+        (Array.isArray(burst.items) ? burst.items : [])
+          .slice(0, 2)
+          .map((text, index) => ({
+            label: `momentumBurst-${index + 1}`,
+            value: safeNumber(burst.strength, 0),
+            text,
+          }))
+      ))
+      : []),
     {
       label: "turnovers",
       value: Math.abs(away.totals.turnovers - home.totals.turnovers),
@@ -1487,7 +1540,7 @@ function buildTemplateAnalysis(features: ReturnType<typeof buildFeaturePayload>)
   if (dominantTitle === "Late Collapse") headlineLead = `${trailer.tricode} stormed back late`;
   if (dominantTitle === "Late Comeback") headlineLead = `${leader.tricode} rallied late`;
   if (dominantTitle === "Momentum Swing") headlineLead = `${leader.tricode} changed the quarter with one push`;
-  if (dominantTitle === "Lineups") headlineLead = `${leader.tricode} got the better stint`;
+  if (dominantTitle === "Lineups") headlineLead = `${leader.tricode} got the better lineup minutes`;
   if (dominantTitle === "Shooting") headlineLead = `${leader.tricode} won the shotmaking window`;
 
   return {
@@ -1547,6 +1600,7 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
     "If one theme clearly dominates, center the answer on that theme.",
     "When the data shows a late-game collapse, comeback, or dramatic final-minute swing, make that central to the analysis even if aggregate quarter stats point elsewhere.",
     "Use game-flow context such as lead changes, largest leads, and concentrated momentum bursts to describe how the stretch unfolded, not just who won the box-score categories.",
+    "When describing multiple momentum bursts, preserve the chronological order provided in momentumBursts.items; do not describe a later run first and then call an earlier run a response.",
     "Do not confuse largest lead within the stretch with the score or margin at the end of the stretch.",
     "The headline follows the same rule: do not use bare 'N-point lead' wording unless N is the actual ending margin of the selected span.",
     "If you say 'by the end of the quarter', 'by the end of the span', or similar, that statement must match score.end exactly.",
@@ -1554,7 +1608,7 @@ async function generateAiAnalysis(features: ReturnType<typeof buildFeaturePayloa
     "If a team won the selected quarter or span by N but did not finish the full game ahead by N, describe it as winning the quarter/span by N or outscoring the opponent by N in that stretch, not as finishing ahead/up by N.",
     "Keep segment analysis anchored to full-game context when relevant: distinguish the scoring margin within the selected span from the actual game margin at the end of the game.",
     "Call out notable individual player stretches when the provided data clearly supports it, especially when one player drove a large share of a team's scoring in the selected window.",
-    "Only mention lineup notes when they materially matter in the range.",
+    "Only mention lineup notes when they materially matter in the range. Lineup notes aggregate same-five groups across separate stints, so do not describe them as single stints unless the note explicitly says one stint.",
     "Return compact JSON with keys: headline, summary, sections.",
     "sections must be an array of 1 to 3 objects with keys: title and items.",
     "Use short, natural section titles. Each section should have 1 or 2 concise bullet strings.",
